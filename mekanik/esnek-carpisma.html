@@ -1,1 +1,447 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Merkezi Olmayan Esnek Çarpışma - Açı Analizi</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e24;
+            color: #fff;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            margin-bottom: 10px;
+            color: #4dabf7;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            max-width: 1200px;
+            width: 100%;
+        }
+        canvas {
+            background-color: #111116;
+            border: 2px solid #444;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        .controls {
+            flex: 1;
+            min-width: 320px;
+            background-color: #2a2a35;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .control-group {
+            margin-bottom: 15px;
+            border-bottom: 1px solid #3a3a45;
+            padding-bottom: 10px;
+        }
+        h3 {
+            margin-top: 0;
+            color: #ff922b;
+        }
+        label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        input[type="range"] {
+            width: 100%;
+            accent-color: #4dabf7;
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        #btnStart { background-color: #51cf66; color: #fff; }
+        #btnStart:hover { background-color: #40c057; }
+        #btnReset { background-color: #ff6b6b; color: #fff; }
+        #btnReset:hover { background-color: #fa5252; }
+        
+        .vector-info {
+            margin-top: 15px;
+            font-family: monospace;
+            background-color: #111;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #a5d8ff;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
 
+    <h1>Esnek Çarpışma ve Saçılma Açıları Analizi</h1>
+    
+    <div class="container">
+        <canvas id="simCanvas" width="750" height="570"></canvas>
+        
+        <div class="controls">
+            <div class="control-group">
+                <h3 style="color: #4dabf7;">1. Cisim (Mavi)</h3>
+                <label>Kütle (m₁): <span id="valM1">2.5</span> kg</label>
+                <input type="range" id="m1" min="1" max="8" step="0.5" value="2.5">
+                
+                <label>Hız X (v₁ₓ): <span id="valV1x">5</span> m/s</label>
+                <input type="range" id="v1x" min="-2" max="8" step="0.5" value="5">
+
+                <label>Dikey Sapma (b): <span id="valB">22</span> px</label>
+                <input type="range" id="b" min="-45" max="45" step="1" value="22">
+            </div>
+            
+            <div class="control-group">
+                <h3 style="color: #ff6b6b;">2. Cisim (Kırmızı)</h3>
+                <label>Kütle (m₂): <span id="valM2">2</span> kg</label>
+                <input type="range" id="m2" min="1" max="8" step="0.5" value="2">
+                
+                <label>Hız X (v₂ₓ): <span id="valV2x">0</span> m/s</label>
+                <input type="range" id="v2x" min="-4" max="4" step="0.5" value="0">
+            </div>
+            
+            <div class="btn-group">
+                <button id="btnStart">Başlat / Durdur</button>
+                <button id="btnReset">Sıfırla</button>
+            </div>
+
+            <div class="vector-info" id="infoPanel">
+                Yükleniyor...
+            </div>
+        </div>
+    </div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const sliders = ['m1', 'v1x', 'b', 'm2', 'v2x'];
+    const btnStart = document.getElementById('btnStart');
+    const btnReset = document.getElementById('btnReset');
+    const infoPanel = document.getElementById('infoPanel');
+
+    let p1, p2;
+    let isRunning = false;
+    let collisionOccurred = false;
+
+    let initialP1 = {x:0, y:0}, initialP2 = {x:0, y:0}, totalP = {x:0, y:0};
+    let finalP1 = {x:0, y:0}, finalP2 = {x:0, y:0};
+    let angle1 = 0, angle2 = 0; // Saçılma açıları
+
+    class Particle {
+        constructor(x, y, radius, mass, vx, vy, color, name) {
+            this.x = x;
+            this.y = y;
+            this.radius = radius;
+            this.mass = mass;
+            this.vx = vx;
+            this.vy = vy;
+            this.color = color;
+            this.name = name;
+            this.history = [];
+        }
+
+        draw() {
+            // İz bırakma
+            ctx.beginPath();
+            ctx.strokeStyle = this.color;
+            ctx.globalAlpha = 0.15;
+            ctx.lineWidth = 3;
+            for(let i=0; i<this.history.length; i++) {
+                if(i===0) ctx.moveTo(this.history[i].x, this.history[i].y);
+                else ctx.lineTo(this.history[i].x, this.history[i].y);
+            }
+            ctx.stroke();
+            ctx.globalAlpha = 1.0;
+
+            // Cisim küresi
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = this.color;
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#fff';
+            ctx.stroke();
+
+            // Hız Vektörü (Sarı ok)
+            let speed = Math.sqrt(this.vx*this.vx + this.vy*this.vy);
+            if(speed > 0.1) {
+                drawArrow(this.x, this.y, this.x + this.vx * 15, this.y + this.vy * 15, '#fcc419', 2);
+            }
+
+            // Çarpışma sonrası cisim üzerinde açı gösterimi
+            if (collisionOccurred && speed > 0.1) {
+                let curAngle = Math.atan2(this.vy, this.vx);
+                
+                // Yatay referans çizgisi
+                ctx.beginPath();
+                ctx.setLineDash([2, 2]);
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(this.x + 40, this.y);
+                ctx.strokeStyle = '#aaa';
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Açı yayı
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 25, 0, curAngle, curAngle < 0);
+                ctx.strokeStyle = '#e5dbff';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                // Derece cinsinden yazı
+                let deg = Math.round(curAngle * 180 / Math.PI);
+                ctx.fillStyle = '#e5dbff';
+                ctx.font = '11px monospace';
+                ctx.fillText(`${deg}°`, this.x + 30, this.y + (curAngle > 0 ? 15 : -10));
+            }
+        }
+
+        update() {
+            if (isRunning) {
+                this.history.push({x: this.x, y: this.y});
+                if (this.history.length > 80) this.history.shift();
+                this.x += this.vx;
+                this.y += this.vy;
+            }
+        }
+    }
+
+    function drawArrow(fromx, fromy, tox, toy, color, lineWidth=2) {
+        let headlen = 8; 
+        let dx = tox - fromx;
+        let dy = toy - fromy;
+        let angle = Math.atan2(dy, dx);
+        
+        ctx.beginPath();
+        ctx.moveTo(fromx, fromy);
+        ctx.lineTo(tox, toy);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lineWidth;
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(tox, toy);
+        ctx.lineTo(tox - headlen * Math.cos(angle - Math.PI / 6), toy - headlen * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(tox - headlen * Math.cos(angle + Math.PI / 6), toy - headlen * Math.sin(angle + Math.PI / 6));
+        ctx.fillStyle = color;
+        ctx.fill();
+    }
+
+    function init() {
+        const m1Val = parseFloat(document.getElementById('m1').value);
+        const v1xVal = parseFloat(document.getElementById('v1x').value);
+        const bVal = parseFloat(document.getElementById('b').value);
+        const m2Val = parseFloat(document.getElementById('m2').value);
+        const v2xVal = parseFloat(document.getElementById('v2x').value);
+
+        sliders.forEach(id => {
+            document.getElementById('val' + id.charAt(0).toUpperCase() + id.slice(1)).innerText = document.getElementById(id).value;
+        });
+
+        const r1 = 15 + m1Val * 2;
+        const r2 = 15 + m2Val * 2;
+
+        p1 = new Particle(150, canvas.height / 3.5 + bVal, r1, m1Val, v1xVal, 0, '#4dabf7', 'Mavi');
+        p2 = new Particle(450, canvas.height / 3.5, r2, m2Val, v2xVal, 0, '#ff6b6b', 'Kırmızı');
+        
+        collisionOccurred = false;
+
+        initialP1 = { x: p1.mass * p1.vx, y: p1.mass * p1.vy };
+        initialP2 = { x: p2.mass * p2.vx, y: p2.mass * p2.vy };
+        totalP = { x: initialP1.x + initialP2.x, y: initialP1.y + initialP2.y };
+        
+        finalP1 = {x: 0, y: 0}; finalP2 = {x: 0, y: 0};
+        angle1 = 0; angle2 = 0;
+
+        updateInfoPanel();
+    }
+
+    function checkCollision() {
+        if (collisionOccurred) return;
+
+        let dx = p2.x - p1.x;
+        let dy = p2.y - p1.y;
+        let distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < p1.radius + p2.radius) {
+            collisionOccurred = true;
+
+            let angle = Math.atan2(dy, dx);
+            let sin = Math.sin(angle);
+            let cos = Math.cos(angle);
+
+            let vx1 = p1.vx * cos + p1.vy * sin;
+            let vy1 = p1.vy * cos - p1.vx * sin;
+            let vx2 = p2.vx * cos + p2.vy * sin;
+            let vy2 = p2.vy * cos - p2.vx * sin;
+
+            let vx1Final = ((p1.mass - p2.mass) * vx1 + 2 * p2.mass * vx2) / (p1.mass + p2.mass);
+            let vx2Final = ((p2.mass - p1.mass) * vx2 + 2 * p1.mass * vx1) / (p1.mass + p2.mass);
+
+            p1.vx = vx1Final * cos - vy1 * sin;
+            p1.vy = vy1 * cos + vx1Final * sin;
+            p2.vx = vx2Final * cos - vy2 * sin;
+            p2.vy = vy2 * cos + vx2Final * sin;
+
+            let overlap = (p1.radius + p2.radius) - distance;
+            p1.x -= overlap * cos * 0.5;
+            p1.y -= overlap * sin * 0.5;
+            p2.x += overlap * cos * 0.5;
+            p2.y += overlap * sin * 0.5;
+
+            finalP1 = { x: p1.mass * p1.vx, y: p1.mass * p1.vy };
+            finalP2 = { x: p2.mass * p2.vx, y: p2.mass * p2.vy };
+
+            // Çarpışma sonrası net yatay saçılma açıları
+            angle1 = Math.round(Math.atan2(p1.vy, p1.vx) * 180 / Math.PI);
+            angle2 = Math.round(Math.atan2(p2.vy, p2.vx) * 180 / Math.PI);
+
+            updateInfoPanel();
+        }
+    }
+
+    function updateInfoPanel() {
+        infoPanel.innerHTML = `
+            <b>İLK MOMENTUMLAR (kg·m/s):</b><br>
+            P₁ (Mavi)   : [x: ${initialP1.x.toFixed(1)}, y: ${initialP1.y.toFixed(1)}]<br>
+            P₂ (Kırmızı): [x: ${initialP2.x.toFixed(1)}, y: ${initialP2.y.toFixed(1)}]<br>
+            <b>Toplam P </b>: [x: ${totalP.x.toFixed(1)}, y: ${totalP.y.toFixed(1)}]<br>
+            <hr style="border-color:#444">
+            <b>SON MOMENTUMLAR & AÇILAR:</b><br>
+            ${collisionOccurred ? 
+                `P₁' (Mavi)  : [x: ${finalP1.x.toFixed(1)}, y: ${finalP1.y.toFixed(1)}] -> <b>θ₁: ${angle1}°</b><br>
+                 P₂' (Kırmızı): [x: ${finalP2.x.toFixed(1)}, y: ${finalP2.y.toFixed(1)}] -> <b>θ₂: ${angle2}°</b><br>
+                 <b>Toplam P'</b>: [x: ${(finalP1.x + finalP2.x).toFixed(1)}, y: ${(finalP1.y + finalP2.y).toFixed(1)}]` 
+                : 'Çarpışma bekleniyor...'}
+        `;
+    }
+
+    function drawMomentumDiagrams() {
+        const startX_pre = 150;
+        const startY_pre = 470;
+        const startX_post = 500;
+        const startY_post = 470;
+        const scale = 12;
+
+        ctx.fillStyle = '#16161d';
+        ctx.fillRect(10, 380, canvas.width - 20, 180);
+        ctx.strokeStyle = '#333';
+        ctx.strokeRect(10, 380, canvas.width - 20, 180);
+
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText("ÇARPIŞMA ÖNCESİ VEKTÖRLER", 40, 405);
+        ctx.fillText("ÇARPIŞMA SONRASI VEKTÖRLER (SAÇILMA)", 390, 405);
+
+        // --- ÖNCESİ ---
+        drawArrow(startX_pre, startY_pre, startX_pre + initialP1.x * scale, startY_pre + initialP1.y * scale, '#4dabf7', 3);
+        let p2StartX = startX_pre + initialP1.x * scale;
+        let p2StartY = startY_pre + initialP1.y * scale;
+        drawArrow(p2StartX, p2StartY, p2StartX + initialP2.x * scale, p2StartY + initialP2.y * scale, '#ff6b6b', 3);
+        
+        ctx.setLineDash([3, 3]);
+        drawArrow(startX_pre, startY_pre, startX_pre + totalP.x * scale, startY_pre + totalP.y * scale, '#51cf66', 2);
+        ctx.setLineDash([]);
+
+        // --- SONRASI ---
+        if (collisionOccurred) {
+            // P1' Vektörü ve Yatay Açı Çizgisi
+            ctx.beginPath();
+            ctx.setLineDash([2, 2]);
+            ctx.moveTo(startX_post, startY_post);
+            ctx.lineTo(startX_post + 60, startY_post);
+            ctx.strokeStyle = '#555';
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            drawArrow(startX_post, startY_post, startX_post + finalP1.x * scale, startY_post + finalP1.y * scale, '#228be6', 3);
+            
+            // P2' Vektörü (P1' ucuna eklenmiş hali)
+            let p2SubStartX = startX_post + finalP1.x * scale;
+            let p2SubStartY = startY_post + finalP1.y * scale;
+            drawArrow(p2SubStartX, p2SubStartY, p2SubStartX + finalP2.x * scale, p2SubStartY + finalP2.y * scale, '#fa5252', 3);
+
+            // Bileşke Vektör (P_toplam aynı kalmalı)
+            ctx.setLineDash([3, 3]);
+            drawArrow(startX_post, startY_post, startX_post + (finalP1.x + finalP2.x) * scale, startY_post + (finalP1.y + finalP2.y) * scale, '#51cf66', 2);
+            ctx.setLineDash([]);
+
+            // Grafikte Açı Metinleri
+            ctx.fillStyle = '#4dabf7';
+            ctx.fillText(`θ₁: ${angle1}°`, startX_post + 65, startY_post + (angle1 > 0 ? 15 : -10));
+        } else {
+            ctx.fillStyle = '#868e96';
+            ctx.font = 'italic 12px sans-serif';
+            ctx.fillText("Çarpışma gerçekleştiğinde açıların yatay", startX_post - 50, startY_post - 10);
+            ctx.fillText("eksenle yaptığı saçılma analizi görünecek.", startX_post - 50, startY_post + 10);
+        }
+    }
+
+    function drawCenterLine() {
+        ctx.beginPath();
+        ctx.setLineDash([5, 5]);
+        ctx.moveTo(0, canvas.height / 3.5);
+        ctx.lineTo(canvas.width, canvas.height / 3.5);
+        ctx.strokeStyle = '#333';
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        drawCenterLine();
+        checkCollision();
+
+        p1.update();
+        p2.update();
+
+        p1.draw();
+        p2.draw();
+
+        drawMomentumDiagrams();
+
+        requestAnimationFrame(animate);
+    }
+
+    sliders.forEach(id => {
+        document.getElementById(id).addEventListener('input', () => {
+            if(!isRunning) init();
+        });
+    });
+
+    btnStart.addEventListener('click', () => {
+        isRunning = !isRunning;
+    });
+
+    btnReset.addEventListener('click', () => {
+        isRunning = false;
+        init();
+    });
+
+    init();
+    animate();
+</script>
+</body>
+</html>
