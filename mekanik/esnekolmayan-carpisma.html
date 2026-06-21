@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3 Kütleli Merkezi Esnek Olmayan Çarpışma</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e24;
+            color: #fff;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { margin-bottom: 10px; color: #f1c40f; font-size: 24px; }
+        .container {
+            display: flex;
+            gap: 20px;
+            max-width: 1100px;
+            width: 100%;
+            background: #2a2a35;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        }
+        canvas {
+            background: #111116;
+            border-radius: 8px;
+            border: 2px solid #444;
+        }
+        .controls {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow-y: auto;
+            max-height: 550px;
+            padding-right: 10px;
+        }
+        .mass-group {
+            border: 1px solid #444;
+            padding: 10px;
+            border-radius: 6px;
+        }
+        .m1-g { border-left: 5px solid #3498db; }
+        .m2-g { border-left: 5px solid #e74c3c; }
+        .m3-g { border-left: 5px solid #2ecc71; }
+        .mass-group h3 { margin: 0 0 8px 0; font-size: 14px; }
+        .control-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        .control-row input { width: 120px; }
+        .info-panel {
+            margin-top: 15px;
+            background: #20202a;
+            padding: 15px;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 1100px;
+            box-sizing: border-box;
+            border: 1px solid #ffeb3b44;
+        }
+        .info-grid {
+            display: flex;
+            justify-content: space-between;
+            font-family: monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .info-col { flex: 1; }
+        .btn {
+            background: #f1c40f;
+            color: #111;
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn:hover { background: #f39c12; }
+    </style>
+</head>
+<body>
+
+    <h1>3 Kütleli Merkezi Esnek Olmayan Çarpışma Simülasyonu</h1>
+
+    <div class="container">
+        <canvas id="simCanvas" width="550" height="550"></canvas>
+
+        <div class="controls">
+            <button class="btn" onclick="resetSim()">Simülasyonu Yeniden Başlat</button>
+            
+            <div class="mass-group m1-g">
+                <h3>1. Kütle (Mavi)</h3>
+                <div class="control-row"><span>Kütle (kg): <b id="m1_val">2.0</b></span><input type="range" id="m1" min="0.5" max="5" step="0.1" value="2.0"></div>
+                <div class="control-row"><span>Hız X (m/s): <b id="vx1_val">3.0</b></span><input type="range" id="vx1" min="-8" max="8" step="0.5" value="3.0"></div>
+                <div class="control-row"><span>Hız Y (m/s): <b id="vy1_val">2.0</b></span><input type="range" id="vy1" min="-8" max="8" step="0.5" value="2.0"></div>
+            </div>
+
+            <div class="mass-group m2-g">
+                <h3>2. Kütle (Kırmızı)</h3>
+                <div class="control-row"><span>Kütle (kg): <b id="m2_val">3.0</b></span><input type="range" id="m2" min="0.5" max="5" step="0.1" value="3.0"></div>
+                <div class="control-row"><span>Hız X (m/s): <b id="vx2_val">-4.0</b></span><input type="range" id="vx2" min="-8" max="8" step="0.5" value="-4.0"></div>
+                <div class="control-row"><span>Hız Y (m/s): <b id="vy2_val">3.0</b></span><input type="range" id="vy2" min="-8" max="8" step="0.5" value="3.0"></div>
+            </div>
+
+            <div class="mass-group m3-g">
+                <h3>3. Kütle (Yeşil)</h3>
+                <div class="control-row"><span>Kütle (kg): <b id="m3_val">1.5</b></span><input type="range" id="m3" min="0.5" max="5" step="0.1" value="1.5"></div>
+                <div class="control-row"><span>Hız X (m/s): <b id="vx3_val">0.0</b></span><input type="range" id="vx3" min="-8" max="8" step="0.5" value="0.0"></div>
+                <div class="control-row"><span>Hız Y (m/s): <b id="vy3_val">-5.0</b></span><input type="range" id="vy3" min="-8" max="8" step="0.5" value="-5.0"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="info-panel">
+        <div class="info-grid">
+            <div class="info-col">
+                <span style="color: #f1c40f; font-weight: bold;">--- MOMENTUM KARŞILAŞTIRMASI ---</span><br>
+                İlk Toplam Momentum (Vektörel): [<span id="p_ilk_x">0</span>, <span id="p_ilk_y">0</span>] Ns<br>
+                İlk Toplam Momentum Büyüklüğü: <span id="p_ilk_mag">0</span> Ns<br>
+                Son Toplam Momentum Büyüklüğü : <span id="p_son_mag">0</span> Ns <span style="color:#2ecc71">(Korundu)</span>
+            </div>
+            <div class="info-col">
+                <span style="color: #f1c40f; font-weight: bold;">--- ENERJİ KARŞILAŞTIRMASI ---</span><br>
+                İlk Toplam Kinetik Enerji : <span id="e_ilk">0</span> J<br>
+                Son Toplam Kinetik Enerji  : <span id="e_son">0</span> J<br>
+                Isıya Dönüşen Kayıp Enerji : <span style="color:#e74c3c; font-weight:bold" id="e_kayip">0</span> J<br>
+                Ortak Son Hız Vektörü      : [<span id="v_son_txt">0</span>] m/s
+            </div>
+        </div>
+    </div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Fiziksel sabitler ve zaman parametreleri
+    const merkezX = canvas.width / 2;
+    const merkezY = canvas.height / 2;
+    const olcek = 20; // Metre -> Piksel dönüşüm oranı
+    let t = -2.0;
+    const dt = 0.02;
+    let animasyonId;
+
+    // input elementleri
+    const inputs = ['m1','vx1','vy1','m2','vx2','vy2','m3','vx3','vy3'];
+    
+    // Değişkenleri oku
+    function getValues() {
+        let v = {};
+        inputs.forEach(id => {
+            v[id] = parseFloat(document.getElementById(id).value);
+            document.getElementById(id+'_val').innerText = v[id].toFixed(1);
+        });
+        return v;
+    }
+
+    function cizOk(x1, y1, x2, y2, renk) {
+        ctx.strokeStyle = renk;
+        ctx.fillStyle = renk;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+        
+        // Ok ucu
+        let aci = Math.atan2(y2 - y1, x2 - x1);
+        ctx.beginPath();
+        ctx.moveTo(x2, y2);
+        ctx.lineTo(x2 - 10 * Math.cos(aci - Math.PI / 6), y2 - 10 * Math.sin(aci - Math.PI / 6));
+        ctx.lineTo(x2 - 10 * Math.cos(aci + Math.PI / 6), y2 - 10 * Math.sin(aci + Math.PI / 6));
+        ctx.fill();
+    }
+
+    function simuleEt() {
+        const f = getValues();
+        
+        // İlk durum momentum ve enerjileri
+        let p1x = f.m1 * f.vx1, p1y = f.m1 * f.vy1;
+        let p2x = f.m2 * f.vx2, p2y = f.m2 * f.vy2;
+        let p3x = f.m3 * f.vx3, p3y = f.m3 * f.vy3;
+        
+        let p_ilk_x = p1x + p2x + p3x;
+        let p_ilk_y = p1y + p2y + p3y;
+        let p_ilk_mag = Math.sqrt(p_ilk_x**2 + p_ilk_y**2);
+        
+        let e_ilk = 0.5 * f.m1 * (f.vx1**2 + f.vy1**2) + 0.5 * f.m2 * (f.vx2**2 + f.vy2**2) + 0.5 * f.m3 * (f.vx3**2 + f.vy3**2);
+        
+        // Son durum (Kenetlenme)
+        let m_toplam = f.m1 + f.m2 + f.m3;
+        let v_son_x = p_ilk_x / m_toplam;
+        let v_son_y = p_ilk_y / m_toplam;
+        let p_son_mag = Math.sqrt((m_toplam*v_son_x)**2 + (m_toplam*v_son_y)**2);
+        let e_son = 0.5 * m_toplam * (v_son_x**2 + v_son_y**2);
+
+        // Arayüz verilerini güncelle
+        document.getElementById('p_ilk_x').innerText = p_ilk_x.toFixed(2);
+        document.getElementById('p_ilk_y').innerText = p_ilk_y.toFixed(2);
+        document.getElementById('p_ilk_mag').innerText = p_ilk_mag.toFixed(2);
+        document.getElementById('p_son_mag').innerText = p_son_mag.toFixed(2);
+        document.getElementById('e_ilk').innerText = e_ilk.toFixed(2);
+        document.getElementById('e_son').innerText = e_son.toFixed(2);
+        document.getElementById('e_kayip').innerText = (e_ilk - e_son).toFixed(2);
+        document.getElementById('v_son_txt').innerText = `${v_son_x.toFixed(1)}, ${v_son_y.toFixed(1)}`;
+
+        // Ekranı Temizle
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Eksen çizgileri
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(0, merkezY); ctx.lineTo(canvas.width, merkezY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(merkezX, 0); ctx.lineTo(merkezX, canvas.height); ctx.stroke();
+
+        if (t < 0) {
+            // Çarpışma Öncesi Hareket
+            // t = -2'den başladığı için, t*hız gerideki konumu verir.
+            let x1 = merkezX + (f.vx1 * t) * olcek;
+            let y1 = merkezY - (f.vy1 * t) * olcek; // Ekranda yukarı yönü -Y'dir
+            let x2 = merkezX + (f.vx2 * t) * olcek;
+            let y2 = merkezY - (f.vy2 * t) * olcek;
+            let x3 = merkezX + (f.vx3 * t) * olcek;
+            let y3 = merkezY - (f.vy3 * t) * olcek;
+
+            // Cisimleri çiz
+            ctx.fillStyle = '#3498db'; ctx.beginPath(); ctx.arc(x1, y1, 6 + f.m1*2, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#e74c3c'; ctx.beginPath(); ctx.arc(x2, y2, 6 + f.m2*2, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#2ecc71'; ctx.beginPath(); ctx.arc(x3, y3, 6 + f.m3*2, 0, Math.PI*2); ctx.fill();
+
+            // Momentum Vektörlerini çiz
+            cizOk(x1, y1, x1 + p1x*8, y1 - p1y*8, '#3498db');
+            cizOk(x2, y2, x2 + p2x*8, y2 - p2y*8, '#e74c3c');
+            cizOk(x3, y3, x3 + p3x*8, y3 - p3y*8, '#2ecc71');
+        } else {
+            // Çarpışma Sonrası Ortak Hareket
+            let ox = merkezX + (v_son_x * t) * olcek;
+            let oy = merkezY - (v_son_y * t) * olcek;
+
+            // Ortak kütleyi çiz
+            ctx.fillStyle = '#9b59b6';
+            ctx.beginPath();
+            ctx.arc(ox, oy, 8 + m_toplam*1.5, 0, Math.PI*2);
+            ctx.fill();
+
+            // Ortak momentum vektörünü çiz
+            cizOk(ox, oy, ox + p_ilk_x*8, oy - p_ilk_y*8, '#9b59b6');
+        }
+
+        // Zamanı ilerlet ve döngüyü sürdür
+        t += dt;
+        if (t > 3.0) t = -2.0; // Döngüyü başa sar
+        animasyonId = requestAnimationFrame(simuleEt);
+    }
+
+    function resetSim() {
+        t = -2.0;
+    }
+
+    // Inputlardan biri değiştiğinde değerleri hemen güncelle
+    inputs.forEach(id => {
+        document.getElementById(id).addEventListener('input', () => {
+            getValues();
+        });
+    });
+
+    // Başlat
+    simuleEt();
+</script>
+</body>
+</html>
