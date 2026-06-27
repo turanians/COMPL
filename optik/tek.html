@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>3D Thomas Young Deneyi Simülasyonu</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #050508; font-family: sans-serif; }
+        #canvas-container { width: 100vw; height: 100vh; }
+        .lil-gui { --background-color: #111217; --text-color: #00adb5; --title-background-color: #1a1c23; font-weight: bold; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lil-gui@0.18"></script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <script>
+        // 1. SAHNE VE KAMERA KURULUMU
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x050508);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(5, 3, 6);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        // Işıklar
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+        scene.add(ambientLight);
+
+        // 2. PARAMETRELER
+        const params = {
+            wavelength: 600,
+            N: 2,
+            d: 20,
+            L: 160,
+            angle: 0
+        };
+
+        // 3. NESNELER
+        // Noktasal Işık Kaynağı
+        const sourceGeo = new THREE.SphereGeometry(0.08, 32, 32);
+        const sourceMat = new THREE.MeshBasicMaterial();
+        const sourceMesh = new THREE.Mesh(sourceGeo, sourceMat);
+        sourceMesh.position.set(-4, 0, 0);
+        scene.add(sourceMesh);
+
+        // GÜNCELLEME: Yarık düzlemi eski heybetli haline döndü ve perdeyle tam aynı boyda (4x4) yapıldı
+        const plateGeo = new THREE.BoxGeometry(0.02, 4.0, 4.0); 
+        const plateMat = new THREE.MeshStandardMaterial({ color: 0x16161a, roughness: 0.8 });
+        const plateMesh = new THREE.Mesh(plateGeo, plateMat);
+        plateMesh.position.set(-1.5, 0, 0);
+        scene.add(plateMesh);
+
+        // Yarık Çizgileri Grubu
+        const slitsGroup = new THREE.Group();
+        scene.add(slitsGroup);
+
+        // Girişim Perdesi (Boyutlar: 4x4)
+        const screenGeo = new THREE.BufferGeometry();
+        const screenMat = new THREE.MeshBasicMaterial({ 
+            vertexColors: true, 
+            transparent: true, 
+            side: THREE.DoubleSide 
+        });
+        const screenMesh = new THREE.Mesh(screenGeo, screenMat);
+        scene.add(screenMesh);
+
+        function nmToRgb(wavelength) {
+            if (wavelength < 440) return new THREE.Color(0.5, 0.0, 1.0);
+            else if (wavelength < 490) return new THREE.Color(0.0, 0.0, 1.0);
+            else if (wavelength < 570) return new THREE.Color(0.0, 1.0, 0.0);
+            else if (wavelength < 590) return new THREE.Color(1.0, 1.0, 0.0);
+            else return new THREE.Color(1.0, 0.0, 0.0);
+        }
+
+        // 4. DINAMIK GÜNCELLEME MOTORU
+        function updateSimulation() {
+            const lam = params.wavelength;
+            const N = params.N;
+            const d = params.d;
+            const L_mid = (params.L / 50.0) - 0.8;
+            const angleRad = (params.angle * Math.PI) / 180;
+
+            const color = nmToRgb(lam);
+            sourceMat.color.copy(color);
+
+            // Yarıkları plaka üzerine dik ve kibar yerleştirme
+            while(slitsGroup.children.length > 0) slitsGroup.remove(slitsGroup.children[0]);
+            
+            const d_scale = (d / 40.0) * 1.2; 
+            let y_positions = [];
+            if (N === 1) y_positions = [0.0];
+            else {
+                for (let i = 0; i < N; i++) y_positions.push(-d_scale/2 + (d_scale / (N - 1)) * i);
+            }
+
+            y_positions.forEach(yPos => {
+                // Yarık boyları yine o estetik minik yapısında (0.6)
+                const slitGeo = new THREE.BoxGeometry(0.012, 0.04, 0.6); 
+                const slitMat = new THREE.MeshBasicMaterial({ color: color });
+                const slitMesh = new THREE.Mesh(slitGeo, slitMat);
+                slitMesh.position.set(-1.48, yPos, 0); 
+                slitsGroup.add(slitMesh);
+            });
+
+            // --- PERDE VE GİRİŞİM HESABI ---
+            const y_steps = 220; 
+            const z_steps = 5;   
+            
+            const vertices = [];
+            const colors = [];
+            const indices = [];
+
+            const base_factor = 0.45;
+            const double_slit_x = -1.5;
+
+            const y_arr = [];
+            for(let i=0; i<y_steps; i++) y_arr.push(-2.0 + (4.0 / (y_steps-1)) * i);
+            const z_arr = [];
+            for(let j=0; j<z_steps; j++) z_arr.push(-2.0 + (4.0 / (z_steps-1)) * j);
+
+            for (let i = 0; i < y_steps; i++) {
+                const y_val = y_arr[i];
+                const L_dynamic = L_mid + y_val * Math.sin(angleRad);
+                const L_safe = Math.max(0.2, L_dynamic);
+                const x_pos = double_slit_x + L_safe;
+
+                const beta = (base_factor * d * y_val * 1000) / (lam * L_safe);
+                const eps = 1e-6;
+                let intensity = 1.0;
+
+                if (N === 1) {
+                    if (Math.abs(beta) < eps) intensity = 1.0;
+                    else intensity = Math.pow(Math.sin(beta) / beta, 2);
+                } else {
+                    const sin_beta = Math.sin(beta);
+                    if (Math.abs(sin_beta) < eps) intensity = 1.0;
+                    else intensity = Math.pow(Math.sin(N * beta) / (N * sin_beta), 2);
+                }
+
+                for (let j = 0; j < z_steps; j++) {
+                    const z_val = z_arr[j];
+                    vertices.push(x_pos, y_val, z_val);
+                    colors.push(color.r, color.g, color.b, intensity);
+                }
+            }
+
+            for (let i = 0; i < y_steps - 1; i++) {
+                for (let j = 0; j < z_steps - 1; j++) {
+                    const p1 = i * z_steps + j;
+                    const p2 = p1 + 1;
+                    const p3 = (i + 1) * z_steps + j;
+                    const p4 = p3 + 1;
+                    
+                    indices.push(p1, p2, p3);
+                    indices.push(p2, p4, p3);
+                }
+            }
+
+            screenGeo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            screenGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 4));
+            screenGeo.setIndex(indices);
+            
+            screenGeo.computeVertexNormals();
+            screenGeo.attributes.position.needsUpdate = true;
+            screenGeo.attributes.color.needsUpdate = true;
+        }
+
+        // 5. ARAYÜZ PANELİ
+        const gui = new lil.GUI({ title: 'Simülasyon Kontrolleri' });
+
+        const setupSlider = (controller) => {
+            controller.step(10).onChange(() => updateSimulation());
+        };
+
+        setupSlider(gui.add(params, 'wavelength', 400, 700).name('Dalga Boyu (λ)'));
+        gui.add(params, 'N', 1, 5, 1).name('Yarık Sayısı (N)').onChange(() => updateSimulation());
+        setupSlider(gui.add(params, 'd', 10, 40).name('Yarık Genişliği (d)'));
+        setupSlider(gui.add(params, 'L', 140, 180).name('Perde Mesafesi (L)'));
+        setupSlider(gui.add(params, 'angle', -50, 50).name('Perde Açısı (θ)'));
+
+        updateSimulation();
+
+        // 6. ANIMASYON DÖNGÜSÜ
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
