@@ -1,1 +1,236 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Eksiksiz 3D Optik Laboratuvarı</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #050505; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
+        #panel {
+            position: absolute; top: 15px; left: 15px;
+            color: white; background: rgba(15, 15, 15, 0.92);
+            padding: 20px; border-radius: 12px; font-size: 14px; line-height: 1.6;
+            width: 320px; box-shadow: 0 15px 35px rgba(0,0,0,0.8);
+            border: 1px solid #3c3c3c;
+            z-index: 10;
+        }
+        
+        h3 { margin-top: 0; margin-bottom: 15px; border-bottom: 1px solid #444; padding-bottom: 5px; color: #ffeb3b; }
+        .control-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #bbb; }
+        input[type="range"] { width: 100%; cursor: pointer; accent-color: #ffeb3b; }
+        
+        .data-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+        .highlight { color: #ffeb3b; font-weight: bold; }
+        .highlight-blue { color: #00e5ff; font-weight: bold; }
+        .highlight-red { color: #ff5252; font-weight: bold; }
+        .highlight-green { color: #4caf50; font-weight: bold; }
+        
+        #instruction {
+            position: absolute; bottom: 15px; right: 15px;
+            color: #888; font-size: 12px; background: rgba(0,0,0,0.6);
+            padding: 8px 12px; border-radius: 6px; pointer-events: none;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
 
+    <div id="panel">
+        <h3>🎛️ Laboratuvar Ayarları</h3>
+        
+        <div class="control-group">
+            <label>Mesafe (r): <span id="lbl-r" class="highlight-blue">2.00</span> m</label>
+            <input type="range" id="slide-r" min="0.6" max="4.0" step="0.05" value="2.0">
+        </div>
+
+        <div class="control-group">
+            <label>Yüzey Dönüşü (Eğim): <span id="lbl-yuzey-aci" class="highlight-red">0</span>°</label>
+            <input type="range" id="slide-yuzey-aci" min="-90" max="90" step="10" value="0">
+        </div>
+
+        <div class="control-group">
+            <label>Yüzey Alanı (A): <span id="lbl-alan" class="highlight-green">4.00</span> m²</label>
+            <input type="range" id="slide-alan" min="0.5" max="9.0" step="0.1" value="4.0">
+        </div>
+        
+        <div class="control-group">
+            <label>Işık Şiddeti (I): <span id="lbl-isik" class="highlight-blue">150</span> cd</label>
+            <input type="range" id="slide-isik" min="10" max="500" step="5" value="150">
+        </div>
+
+        <h3>🔬 Canlı Analiz Verileri</h3>
+        <div class="data-row">
+            <span>Normal ile Açı (θ):</span>
+            <span id="val-aci-gercek" class="highlight-red">0.0°</span>
+        </div>
+        <div class="data-row">
+            <span>Aydınlanma (E_merkez):</span>
+            <span id="val-e" class="highlight">0.00 lux</span>
+        </div>
+        <div class="data-row">
+            <span>🎯 Yüzeye Düşen Net Akı:</span>
+            <span id="val-phi" class="highlight-green">0.00 lm</span>
+        </div>
+    </div>
+
+    <div id="instruction">🖱️ Mouse ile sürükleyerek bakış açınızı değiştirebilirsiniz.</div>
+
+    <script>
+        // 1. SAHNE VE KAMERA
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        camera.position.set(2.5, 3.5, 6.0);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.target.set(0, 0, 0);
+
+        // 2. IŞIK KAYNAĞI
+        const pointLight = new THREE.PointLight(0xffffff, 1, 100); 
+        pointLight.position.set(-2.5, 0, 0);
+        scene.add(pointLight);
+
+        const lightMesh = new THREE.Mesh(
+            new THREE.SphereGeometry(0.12, 32, 32),
+            new THREE.MeshBasicMaterial({ color: 0xffeb3b })
+        );
+        lightMesh.position.copy(pointLight.position);
+        scene.add(lightMesh);
+
+        const ambientLight = new THREE.AmbientLight(0x222222);
+        scene.add(ambientLight);
+
+        const lightHelper = new THREE.PointLightHelper(pointLight, 0.3, 0xffeb3b);
+        scene.add(lightHelper);
+
+        // 3. TAM 3D YÜZEY (Başlangıç boyutları)
+        const yuzeyKalinlik = 0.12; 
+        const yuzeyGeo = new THREE.BoxGeometry(yuzeyKalinlik, 1, 1); // Ölçeklendirmeyi kod içinde dinamik yapacağız
+        const yuzeyMat = new THREE.MeshStandardMaterial({ 
+            color: 0xffffff, 
+            roughness: 0.4,
+            metalness: 0.1
+        });
+        const yuzeyMesh = new THREE.Mesh(yuzeyGeo, yuzeyMat);
+        scene.add(yuzeyMesh);
+
+        // 4. VEKTÖRLER
+        const rayLineMat = new THREE.LineBasicMaterial({ color: 0xff5252, transparent: true, opacity: 0.7 });
+        const rayLineGeo = new THREE.BufferGeometry().setFromPoints([lightMesh.position, yuzeyMesh.position]);
+        const rayLine = new THREE.Line(rayLineGeo, rayLineMat);
+        scene.add(rayLine);
+
+        const arrowLength = 2.0; 
+        const normalArrow = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), arrowLength, 0x2979ff, 0.2, 0.1);
+        scene.add(normalArrow);
+
+        // ELEMENT TANIMLARI
+        const slideR = document.getElementById('slide-r');
+        const slideYuzeyAci = document.getElementById('slide-yuzey-aci');
+        const slideAlan = document.getElementById('slide-alan');
+        const slideIsik = document.getElementById('slide-isik');
+        
+        const lblR = document.getElementById('lbl-r');
+        const lblYuzeyAci = document.getElementById('lbl-yuzey-aci');
+        const lblAlan = document.getElementById('lbl-alan');
+        const lblIsik = document.getElementById('lbl-isik');
+        
+        const valAciGercek = document.getElementById('val-aci-gercek');
+        const valE = document.getElementById('val-e');
+        const valPhi = document.getElementById('val-phi');
+
+        function guncelle() {
+            const r = parseFloat(slideR.value);
+            const yuzeyAciDerece = parseFloat(slideYuzeyAci.value);
+            const yuzeyAlani = parseFloat(slideAlan.value);
+            const isikSiddeti = parseFloat(slideIsik.value);
+
+            lblR.innerText = r.toFixed(2);
+            lblYuzeyAci.innerText = yuzeyAciDerece;
+            lblAlan.innerText = yuzeyAlani.toFixed(2);
+            lblIsik.innerText = isikSiddeti;
+
+            // --- 📐 ALAN VE BOYUT GÜNCELLEMESİ 📐 ---
+            // Kare bir yüzey varsayımıyla kenar uzunluğu = kök(Alan)
+            const kenar = Math.sqrt(yuzeyAlani);
+            // 3D kutunun Y ve Z eksenindeki boyutlarını (en ve boy) dinamik olarak ölçeklendiriyoruz
+            yuzeyMesh.scale.set(1, kenar, kenar);
+
+            // Mesafeye göre pozisyon
+            yuzeyMesh.position.x = -2.5 + r;
+
+            // Eğim açısı
+            const aciRadyan = yuzeyAciDerece * (Math.PI / 180);
+            yuzeyMesh.rotation.y = aciRadyan;
+
+            // Çizgileri bağla
+            rayLine.geometry.setFromPoints([lightMesh.position, yuzeyMesh.position]);
+            normalArrow.position.copy(yuzeyMesh.position);
+            
+            const dinamikNormal = new THREE.Vector3(1, 0, 0).applyQuaternion(yuzeyMesh.quaternion);
+            normalArrow.setDirection(dinamikNormal);
+            normalArrow.position.addScaledVector(dinamikNormal, -arrowLength / 2);
+
+            // --- FİZİKSEL MATEMATİK HESABI ---
+            const isikYonu = new THREE.Vector3().subVectors(yuzeyMesh.position, lightMesh.position).normalize();
+            let cosTheta = dinamikNormal.dot(isikYonu);
+            
+            let E_merkez = 0;
+            let gercekAciDerece = 0;
+
+            if (cosTheta > 0) {
+                gercekAciDerece = Math.acos(Math.min(cosTheta, 1.0)) * (180 / Math.PI);
+                E_merkez = (isikSiddeti / (r * r)) * cosTheta;
+            } else {
+                gercekAciDerece = Math.acos(Math.max(cosTheta, -1.0)) * (180 / Math.PI);
+                E_merkez = 0;
+            }
+
+            // Phi = E * A (Aydınlanma Şiddeti * Yeni Dinamik Alan)
+            const yuzeyPhi = E_merkez * yuzeyAlani;
+
+            // Görsel Parlaklık Kalibrasyonu
+            const maxLuxReferans = 50.0;
+            let parlaklikOrani = Math.min(Math.max(E_merkez / maxLuxReferans, 0.0), 1.0);
+            if (E_merkez <= 0) parlaklikOrani = 0.05;
+
+            const R_G_B = 0.15 + (parlaklikOrani * 0.85); 
+            yuzeyMesh.material.color.setRGB(R_G_B, R_G_B, R_G_B);
+            pointLight.intensity = parlaklikOrani * 4.5;
+
+            // Verileri ekrana bas
+            valAciGercek.innerText = gercekAciDerece.toFixed(1) + "°";
+            valE.innerText = E_merkez.toFixed(2) + " lux";
+            valPhi.innerText = yuzeyPhi.toFixed(2) + " lm";
+        }
+
+        // Tüm slider'lar için dinleyiciler
+        slideR.addEventListener('input', guncelle);
+        slideYuzeyAci.addEventListener('input', guncelle);
+        slideAlan.addEventListener('input', guncelle);
+        slideIsik.addEventListener('input', guncelle);
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update(); 
+            guncelle();        
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }, false);
+
+        animate();
+    </script>
+</body>
+</html>
