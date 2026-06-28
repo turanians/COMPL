@@ -6,7 +6,7 @@
     <style>
         body { margin: 0; overflow: hidden; background-color: #050508; font-family: sans-serif; }
         #canvas-container { width: 100vw; height: 100vh; }
-        .lil-gui { --background-color: #111217; --text-color: #00adb5; --title-background-color: #1a1c23; font-weight: bold; }
+        .lil-gui { --background-color: #111217; --text-color: #00adb5; --title-background-color: #1a1c23; font-weight: bold; width: 320px; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -15,15 +15,26 @@
 <body>
 
     <div id="canvas-container"></div>
-    </head>
-<body>
 
-    <div id="canvas-container"></div>
-
-
-
-    <script>
-        // Sahne ve kamera kurulumu kodları buradan aşağıya devam ediyor...
+    <div style="
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        color: #00ff66;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 14px;
+        font-weight: bold;
+        letter-spacing: 2px;
+        background: rgba(10, 10, 15, 0.7);
+        padding: 8px 15px;
+        border-radius: 5px;
+        border: 1px solid rgba(0, 255, 102, 0.3);
+        box-shadow: 0 0 10px rgba(0, 255, 102, 0.2);
+        z-index: 9999;
+        pointer-events: none;
+    ">
+         tt
+    </div>
 
     <script>
         // 1. SAHNE VE KAMERA KURULUMU
@@ -61,7 +72,7 @@
         sourceMesh.position.set(-4, 0, 0);
         scene.add(sourceMesh);
 
-        // GÜNCELLEME: Yarık düzlemi eski heybetli haline döndü ve perdeyle tam aynı boyda (4x4) yapıldı
+        // Yarık düzlemi
         const plateGeo = new THREE.BoxGeometry(0.02, 4.0, 4.0); 
         const plateMat = new THREE.MeshStandardMaterial({ color: 0x16161a, roughness: 0.8 });
         const plateMesh = new THREE.Mesh(plateGeo, plateMat);
@@ -72,7 +83,7 @@
         const slitsGroup = new THREE.Group();
         scene.add(slitsGroup);
 
-        // Girişim Perdesi (Boyutlar: 4x4)
+        // Girişim Perdesi
         const screenGeo = new THREE.BufferGeometry();
         const screenMat = new THREE.MeshBasicMaterial({ 
             vertexColors: true, 
@@ -101,7 +112,7 @@
             const color = nmToRgb(lam);
             sourceMat.color.copy(color);
 
-            // Yarıkları plaka üzerine dik ve kibar yerleştirme
+            // Yarıkları plaka üzerine yerleştirme
             while(slitsGroup.children.length > 0) slitsGroup.remove(slitsGroup.children[0]);
             
             const d_scale = (d / 40.0) * 1.2; 
@@ -112,7 +123,6 @@
             }
 
             y_positions.forEach(yPos => {
-                // Yarık boyları yine o estetik minik yapısında (0.6)
                 const slitGeo = new THREE.BoxGeometry(0.012, 0.04, 0.6); 
                 const slitMat = new THREE.MeshBasicMaterial({ color: color });
                 const slitMesh = new THREE.Mesh(slitGeo, slitMat);
@@ -183,18 +193,15 @@
             screenGeo.attributes.color.needsUpdate = true;
         }
 
-        // 5. ARAYÜZ PANELİ
+        // 5. ARAYÜZ PANELİ (ADIM DÜZELTMELERİ YAPILDI)
         const gui = new lil.GUI({ title: 'Simülasyon Kontrolleri' });
 
-        const setupSlider = (controller) => {
-            controller.step(10).onChange(() => updateSimulation());
-        };
-
-        setupSlider(gui.add(params, 'wavelength', 400, 700).name('Dalga Boyu (λ)'));
+        // Hassas geçişler için adımlar (step) revize edildi
+        gui.add(params, 'wavelength', 400, 700, 1).name('Dalga Boyu (λ)').onChange(() => updateSimulation());
         gui.add(params, 'N', 1, 5, 1).name('Yarık Sayısı (N)').onChange(() => updateSimulation());
-        setupSlider(gui.add(params, 'd', 10, 40).name('Yarık Genişliği (d)'));
-        setupSlider(gui.add(params, 'L', 140, 180).name('Perde Mesafesi (L)'));
-        setupSlider(gui.add(params, 'angle', -50, 50).name('Perde Açısı (θ)'));
+        gui.add(params, 'd', 10, 40, 0.1).name('Yarık Genişliği (d)').onChange(() => updateSimulation());
+        gui.add(params, 'L', 140, 180, 1).name('Perde Mesafesi (L)').onChange(() => updateSimulation());
+        gui.add(params, 'angle', -50, 50, 1).name('Perde Açısı (θ)').onChange(() => updateSimulation());
 
         updateSimulation();
 
@@ -212,8 +219,6 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
     </script>
-    <footer>
-        COMPL // Computational Physics Laboratory // Turan Taşköprü
-    </footer>
 </body>
 </html>
+
