@@ -1,1 +1,133 @@
+import pygame
+import math
 
+# Başlatma
+pygame.init()
+WIDTH, HEIGHT = 1000, 700
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Kırılma İndisi ve Gözlemci Simülasyonu")
+font = pygame.font.SysFont("Arial", 20)
+
+# Renkler
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+SURFACE_Y = HEIGHT // 2
+
+# Başlangıç Değerleri
+n_top = 1.0      # Üst ortam (Hava)
+n_bottom = 1.33  # Alt ortam (Su)
+obs_pos = [200, 150]    # Gözlemci konumu
+obj_pos = [800, 550]    # Nesne konumu
+
+def get_refraction_point(obs, obj, n_t, n_b):
+    """
+    Snell yasasına göre ışığın yüzeyde kırıldığı noktayı bulur (İteratif Çözüm).
+    """
+    x_min = min(obs[0], obj[0])
+    x_max = max(obs[0], obj[0])
+    
+    # İteratif olarak yüzeydeki en uygun x noktasını bul (Binary Search benzeri)
+    for _ in range(50):
+        mid_x = (x_min + x_max) / 2
+        
+        # Açılar (Normal ile yapılan)
+        theta_top = math.atan2(abs(mid_x - obs[0]), abs(SURFACE_Y - obs[1]))
+        theta_bottom = math.atan2(abs(mid_x - obj[0]), abs(SURFACE_Y - obj[1]))
+        
+        # Snell: n1 * sin(t1) = n2 * sin(t2)
+        if n_t * math.sin(theta_top) < n_b * math.sin(theta_bottom):
+            if obs[0] < obj[0]: x_min = mid_x
+            else: x_max = mid_x
+        else:
+            if obs[0] < obj[0]: x_max = mid_x
+            else: x_min = mid_x
+            
+    return mid_x
+
+running = True
+dragging_obs = False
+dragging_obj = False
+
+while running:
+    screen.fill(WHITE)
+    
+    # Ortamları çiz
+    pygame.draw.rect(screen, (200, 240, 255), (0, 0, WIDTH, SURFACE_Y))        # Üst
+    pygame.draw.rect(screen, (100, 150, 255), (0, SURFACE_Y, WIDTH, HEIGHT//2)) # Alt
+    pygame.draw.line(screen, BLACK, (0, SURFACE_Y), (WIDTH, SURFACE_Y), 3)     # Yüzey
+
+    # Olay Kontrolü
+    mouse_pos = pygame.mouse.get_pos()
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if math.hypot(mouse_pos[0]-obs_pos[0], mouse_pos[1]-obs_pos[1]) < 20:
+                dragging_obs = True
+            if math.hypot(mouse_pos[0]-obj_pos[0], mouse_pos[1]-obj_pos[1]) < 20:
+                dragging_obj = True
+        
+        if event.type == pygame.MOUSEBUTTONUP:
+            dragging_obs = False
+            dragging_obj = False
+            
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_UP: n_top += 0.05
+            if event.key == pygame.K_DOWN: n_top = max(0.1, n_top - 0.05)
+            if event.key == pygame.K_RIGHT: n_bottom += 0.05
+            if event.key == pygame.K_LEFT: n_bottom = max(0.1, n_bottom - 0.05)
+
+    if dragging_obs: 
+        obs_pos[0], obs_pos[1] = mouse_pos[0], min(mouse_pos[1], SURFACE_Y - 10)
+    if dragging_obj: 
+        obj_pos[0], obj_pos[1] = mouse_pos[0], max(mouse_pos[1], SURFACE_Y + 10)
+
+    # 1. Kırılma Noktasını Hesapla
+    surface_x = get_refraction_point(obs_pos, obj_pos, n_top, n_bottom)
+    
+    # 2. Işınları Çiz
+    # Gerçek ışın yolu (Objeden yüzeye, yüzeyden göze)
+    pygame.draw.line(screen, (255, 255, 0), obj_pos, (surface_x, SURFACE_Y), 3)
+    pygame.draw.line(screen, (255, 255, 0), (surface_x, SURFACE_Y), obs_pos, 3)
+    
+    # 3. Zahiri (Görünen) Işın ve Görüntü Hesabı
+    # Gözden çıkan ışının doğrusal uzantısını bul
+    angle_obs = math.atan2(obs_pos[1] - SURFACE_Y, obs_pos[0] - surface_x)
+    # Zahiri görüntü nesnenin dikey hizasında oluşur (yaklaşık)
+    # Daha hassas olması için ışın doğrultusu ile nesne dikeyini kesiştiriyoruz
+    apparent_x = obj_pos[0]
+    dist_x = abs(apparent_x - surface_x)
+    # Gözden gelen ışın açısıyla yüzey altındaki derinliği bul
+    slope = (obs_pos[1] - SURFACE_Y) / (obs_pos[0] - surface_x)
+    apparent_y = SURFACE_Y + (apparent_x - surface_x) * slope
+    
+    # Zahiri ışın (kesikli çizgi efekti)
+    pygame.draw.line(screen, (200, 200, 200), (surface_x, SURFACE_Y), (apparent_x, apparent_y), 2)
+    
+    # 4. Nesneleri Çiz
+    # Göz (Gözlemci)
+    pygame.draw.circle(screen, (50, 50, 50), obs_pos, 15)
+    pygame.draw.circle(screen, WHITE, (obs_pos[0]+5, obs_pos[1]-5), 4) # Parlama
+    
+    # Gerçek Nesne (Kırmızı)
+    pygame.draw.circle(screen, (255, 0, 0), obj_pos, 12)
+    
+    # Zahiri Görüntü (Soluk Kırmızı)
+    pygame.draw.circle(screen, (255, 150, 150), (int(apparent_x), int(apparent_y)), 10)
+
+    # 5. Bilgi Paneli
+    infos = [
+        f"Üst İndis (n1): {n_top:.2f} (Yön Tuşları: Alt/Üst)",
+        f"Alt İndis (n2): {n_bottom:.2f} (Yön Tuşları: Sağ/Sol)",
+        "Gözü veya Nesneyi farenizle sürükleyin.",
+        f"Gerçek Derinlik: {int(obj_pos[1] - SURFACE_Y)} px",
+        f"Görünür Derinlik: {int(apparent_y - SURFACE_Y)} px"
+    ]
+    for i, text in enumerate(infos):
+        img = font.render(text, True, BLACK)
+        screen.blit(img, (20, 20 + i*25))
+
+    pygame.display.flip()
+
+pygame.quit()
