@@ -2,215 +2,165 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Görünür Derinlik Simülasyonu</title>
+    <title>Stabil Görünür Derinlik Simülasyonu</title>
     <style>
-        body {
-            font-family: sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            background-color: #f0f0f0;
-            margin: 0;
-            padding: 20px;
-        }
-        canvas {
-            border: 2px solid #333;
-            background-color: white;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            cursor: crosshair;
-        }
-        .controls {
-            margin-top: 20px;
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            display: flex;
-            gap: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        label { font-weight: bold; margin-bottom: 5px; }
-        .info { margin-top: 10px; color: #555; font-size: 0.9em; }
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background-color: #f0f0f0; margin: 0; padding: 20px; }
+        canvas { border: 2px solid #333; background-color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.2); cursor: move; }
+        .controls { margin-top: 20px; background: white; padding: 15px; border-radius: 8px; display: flex; gap: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .control-group { display: flex; flex-direction: column; align-items: center; min-width: 150px; }
+        label { font-weight: bold; margin-bottom: 5px; font-size: 0.9em; }
+        .warning { color: #d32f2f; font-weight: bold; height: 20px; margin-top: 10px; }
     </style>
 </head>
 <body>
 
     <h2>Işığın Kırılması ve Görünür Derinlik</h2>
-
+    
     <canvas id="simCanvas" width="800" height="500"></canvas>
+    
+    <div id="status" class="warning"></div>
 
     <div class="controls">
         <div class="control-group">
-            <label>Üst Ortam İndisi (n1)</label>
+            <label>Üst Ortam (n1: Hava)</label>
             <input type="range" id="n1Range" min="1" max="2.5" step="0.01" value="1.0">
             <span id="n1Val">1.00</span>
         </div>
         <div class="control-group">
-            <label>Alt Ortam İndisi (n2)</label>
+            <label>Alt Ortam (n2: Su/Cam)</label>
             <input type="range" id="n2Range" min="1" max="2.5" step="0.01" value="1.33">
             <span id="n2Val">1.33</span>
         </div>
     </div>
 
-    <div class="info">
-        * Gözü (Siyah) veya Nesneyi (Kırmızı) farenizle sürükleyebilirsiniz. <br>
-        * Pembe daire, gözün nesneyi gördüğü (zahiri) konumu temsil eder.
-    </div>
-
     <script>
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
+        const statusDiv = document.getElementById('status');
+        
+        const SURFACE_Y = canvas.height / 2;
+        let n1 = 1.0, n2 = 1.33;
+        let eyePos = { x: 200, y: 100 };
+        let objPos = { x: 600, y: 400 };
+        let isDraggingEye = false, isDraggingObj = false;
+
+        // Kontroller
         const n1Slider = document.getElementById('n1Range');
         const n2Slider = document.getElementById('n2Range');
-        const n1ValLabel = document.getElementById('n1Val');
-        const n2ValLabel = document.getElementById('n2Val');
 
-        // Sabitler
-        const SURFACE_Y = canvas.height / 2;
-        
-        // Durum Değişkenleri
-        let n1 = 1.0;
-        let n2 = 1.33;
-        let eyePos = { x: 150, y: 100 };
-        let objPos = { x: 600, y: 400 };
-        let isDraggingEye = false;
-        let isDraggingObj = false;
-
-        // Mouse Etkinlikleri
-        canvas.addEventListener('mousedown', (e) => {
+        canvas.addEventListener('mousedown', e => {
             const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-
-            if (Math.hypot(mouseX - eyePos.x, mouseY - eyePos.y) < 20) isDraggingEye = true;
-            else if (Math.hypot(mouseX - objPos.x, mouseY - objPos.y) < 20) isDraggingObj = true;
+            const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+            if (Math.hypot(mx - eyePos.x, my - eyePos.y) < 25) isDraggingEye = true;
+            else if (Math.hypot(mx - objPos.x, my - objPos.y) < 25) isDraggingObj = true;
         });
 
-        window.addEventListener('mouseup', () => {
-            isDraggingEye = false;
-            isDraggingObj = false;
-        });
+        window.addEventListener('mouseup', () => { isDraggingEye = isDraggingObj = false; });
 
-        canvas.addEventListener('mousemove', (e) => {
+        canvas.addEventListener('mousemove', e => {
             const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
+            const mx = e.clientX - rect.left, my = e.clientY - rect.top;
 
             if (isDraggingEye) {
-                eyePos.x = mouseX;
-                eyePos.y = Math.min(mouseY, SURFACE_Y - 20);
+                eyePos.x = Math.max(10, Math.min(canvas.width - 10, mx));
+                eyePos.y = Math.max(10, Math.min(SURFACE_Y - 20, my)); // Üst sınır
             }
             if (isDraggingObj) {
-                objPos.x = mouseX;
-                objPos.y = Math.max(mouseY, SURFACE_Y + 20);
+                objPos.x = Math.max(10, Math.min(canvas.width - 10, mx));
+                objPos.y = Math.max(SURFACE_Y + 20, Math.min(canvas.height - 10, my)); // Alt sınır
             }
             draw();
         });
 
-        n1Slider.oninput = function() { n1 = parseFloat(this.value); n1ValLabel.innerText = n1.toFixed(2); draw(); };
-        n2Slider.oninput = function() { n2 = parseFloat(this.value); n2ValLabel.innerText = n2.toFixed(2); draw(); };
+        n1Slider.oninput = function() { n1 = parseFloat(this.value); document.getElementById('n1Val').innerText = n1.toFixed(2); draw(); };
+        n2Slider.oninput = function() { n2 = parseFloat(this.value); document.getElementById('n2Val').innerText = n2.toFixed(2); draw(); };
 
-        // Snell Yasasına göre kırılma noktasını bul (Binary Search)
-        function findRefractionPoint(eye, obj, n_top, n_bot) {
-            let low = Math.min(eye.x, obj.x) - 500; // Geniş bir alan tarıyoruz
-            let high = Math.max(eye.x, obj.x) + 500;
+        function findRefractionPoint() {
+            let low = 0, high = canvas.width;
             
-            for (let i = 0; i < 40; i++) {
+            // Hassas arama için 50 iterasyon
+            for (let i = 0; i < 50; i++) {
                 let mid = (low + high) / 2;
-                let theta1 = Math.atan2(Math.abs(mid - eye.x), Math.abs(SURFACE_Y - eye.y));
-                let theta2 = Math.atan2(Math.abs(mid - obj.x), Math.abs(SURFACE_Y - obj.y));
+                // Göz ve obje ile yüzeydeki nokta arasındaki yatay mesafeler
+                let d1 = mid - eyePos.x;
+                let d2 = objPos.x - mid;
+                // Hipotenüsler
+                let h1 = Math.hypot(d1, SURFACE_Y - eyePos.y);
+                let h2 = Math.hypot(d2, objPos.y - SURFACE_Y);
                 
-                // n1 * sin(t1) = n2 * sin(t2)
-                if (n_top * Math.sin(theta1) < n_bot * Math.sin(theta2)) {
-                    if (eye.x < obj.x) low = mid; else high = mid;
-                } else {
-                    if (eye.x < obj.x) high = mid; else low = mid;
-                }
+                // Snell: n1 * sin(theta1) = n2 * sin(theta2) -> n1 * (d1/h1) = n2 * (d2/h2)
+                if (n1 * (d1/h1) < n2 * (d2/h2)) low = mid;
+                else high = mid;
             }
             return (low + high) / 2;
         }
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            statusDiv.innerText = "";
 
-            // 1. Ortamları Çiz
-            ctx.fillStyle = "#e0f7fa"; // Hava
-            ctx.fillRect(0, 0, canvas.width, SURFACE_Y);
-            ctx.fillStyle = "#0277bd"; // Su
-            ctx.fillRect(0, SURFACE_Y, canvas.width, canvas.height - SURFACE_Y);
+            // Ortamlar
+            ctx.fillStyle = "#e3f2fd"; ctx.fillRect(0, 0, canvas.width, SURFACE_Y);
+            ctx.fillStyle = "#bbdefb"; ctx.fillRect(0, SURFACE_Y, canvas.width, canvas.height/2);
+            ctx.strokeStyle = "#1976d2"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(0, SURFACE_Y); ctx.lineTo(canvas.width, SURFACE_Y); ctx.stroke();
+
+            const surfX = findRefractionPoint();
             
-            // Yüzey Çizgisi
-            ctx.strokeStyle = "#333";
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(0, SURFACE_Y);
-            ctx.lineTo(canvas.width, SURFACE_Y);
-            ctx.stroke();
+            // Tam yansıma kontrolü (Işık objeden çıkıp yüzeye çarptığında)
+            const sinTheta2 = Math.abs(objPos.x - surfX) / Math.hypot(objPos.x - surfX, objPos.y - SURFACE_Y);
+            if ((n2 * sinTheta2) / n1 > 1.0) {
+                statusDiv.innerText = "UYARI: Tam Yansıma! Işık yüzeyi geçemiyor.";
+                drawPoint(objPos, "red", "Gerçek Nesne");
+                drawPoint(eyePos, "black", "Gözlemci");
+                return;
+            }
 
-            // 2. Hesaplamalar
-            let surfX = findRefractionPoint(eyePos, objPos, n1, n2);
-            
-            // Zahiri (Görünen) Derinlik Hesabı
-            // Gözden gelen ışın açısını bulup geriye doğru uzatıyoruz
-            let angleAtEye = Math.atan2(SURFACE_Y - eyePos.y, surfX - eyePos.x);
-            let slope = (eyePos.y - SURFACE_Y) / (eyePos.x - surfX);
-            let apparentY = SURFACE_Y + (objPos.x - surfX) * slope;
-
-            // 3. Işınları Çiz
-            // Gerçek Işın
+            // Işın Çizimi
             ctx.setLineDash([]);
-            ctx.strokeStyle = "yellow";
-            ctx.lineWidth = 3;
+            ctx.strokeStyle = "#ffd600"; ctx.lineWidth = 3;
             ctx.beginPath();
             ctx.moveTo(objPos.x, objPos.y);
             ctx.lineTo(surfX, SURFACE_Y);
             ctx.lineTo(eyePos.x, eyePos.y);
             ctx.stroke();
 
-            // Zahiri Işın (Kesikli)
-            ctx.setLineDash([5, 5]);
-            ctx.strokeStyle = "#aaa";
+            // Zahiri Hesaplama (Eğim hatasını önlemek için +0.1 ekliyoruz)
+            const dx = (surfX - eyePos.x) || 0.1; 
+            const dy = (SURFACE_Y - eyePos.y);
+            const slope = dy / dx;
+            const apparentY = SURFACE_Y + (objPos.x - surfX) * slope;
+
+            // Zahiri Işın
+            ctx.setLineDash([5, 5]); ctx.strokeStyle = "#9e9e9e"; ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.moveTo(surfX, SURFACE_Y);
             ctx.lineTo(objPos.x, apparentY);
             ctx.stroke();
 
-            // 4. Nesneleri Çiz
-            // Gerçek Nesne
-            ctx.setLineDash([]);
-            ctx.fillStyle = "red";
-            ctx.beginPath();
-            ctx.arc(objPos.x, objPos.y, 12, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Zahiri Nesne
-            ctx.fillStyle = "rgba(255, 100, 100, 0.6)";
-            ctx.beginPath();
-            ctx.arc(objPos.x, apparentY, 10, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Gözlemci (Göz)
-            ctx.fillStyle = "black";
-            ctx.beginPath();
-            ctx.arc(eyePos.x, eyePos.y, 15, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = "white";
-            ctx.beginPath();
-            ctx.arc(eyePos.x + 5, eyePos.y - 5, 4, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Yazılar
-            ctx.fillStyle = "black";
-            ctx.font = "14px Arial";
-            ctx.fillText(`Gerçek Derinlik: ${Math.round(objPos.y - SURFACE_Y)} px`, 10, 20);
-            ctx.fillText(`Görünür Derinlik: ${Math.round(apparentY - SURFACE_Y)} px`, 10, 40);
+            // Nesneler
+            drawPoint({x: objPos.x, y: apparentY}, "rgba(255, 0, 0, 0.3)", "Zahiri Görüntü", 10);
+            drawPoint(objPos, "#d32f2f", "Gerçek Nesne", 12);
+            drawPoint(eyePos, "#212121", "Gözlemci", 15);
+            
+            // Bilgi metni
+            ctx.fillStyle = "#333"; ctx.font = "13px Arial";
+            ctx.fillText(`Gerçek Derinlik: ${Math.round(objPos.y - SURFACE_Y)}px`, 10, 25);
+            ctx.fillText(`Görünür Derinlik: ${Math.round(Math.max(0, apparentY - SURFACE_Y))}px`, 10, 45);
         }
 
-        draw(); // İlk çizim
+        function drawPoint(pos, color, label, radius = 10) {
+            ctx.setLineDash([]);
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "#333";
+            ctx.font = "bold 12px Arial";
+            ctx.fillText(label, pos.x - 30, pos.y - radius - 5);
+        }
+
+        draw();
     </script>
 </body>
 </html>
