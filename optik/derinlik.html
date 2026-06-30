@@ -1,133 +1,216 @@
-import pygame
-import math
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Görünür Derinlik Simülasyonu</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+        }
+        canvas {
+            border: 2px solid #333;
+            background-color: white;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            cursor: crosshair;
+        }
+        .controls {
+            margin-top: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            display: flex;
+            gap: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        label { font-weight: bold; margin-bottom: 5px; }
+        .info { margin-top: 10px; color: #555; font-size: 0.9em; }
+    </style>
+</head>
+<body>
 
-# Başlatma
-pygame.init()
-WIDTH, HEIGHT = 1000, 700
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Kırılma İndisi ve Gözlemci Simülasyonu")
-font = pygame.font.SysFont("Arial", 20)
+    <h2>Işığın Kırılması ve Görünür Derinlik</h2>
 
-# Renkler
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-SURFACE_Y = HEIGHT // 2
+    <canvas id="simCanvas" width="800" height="500"></canvas>
 
-# Başlangıç Değerleri
-n_top = 1.0      # Üst ortam (Hava)
-n_bottom = 1.33  # Alt ortam (Su)
-obs_pos = [200, 150]    # Gözlemci konumu
-obj_pos = [800, 550]    # Nesne konumu
+    <div class="controls">
+        <div class="control-group">
+            <label>Üst Ortam İndisi (n1)</label>
+            <input type="range" id="n1Range" min="1" max="2.5" step="0.01" value="1.0">
+            <span id="n1Val">1.00</span>
+        </div>
+        <div class="control-group">
+            <label>Alt Ortam İndisi (n2)</label>
+            <input type="range" id="n2Range" min="1" max="2.5" step="0.01" value="1.33">
+            <span id="n2Val">1.33</span>
+        </div>
+    </div>
 
-def get_refraction_point(obs, obj, n_t, n_b):
-    """
-    Snell yasasına göre ışığın yüzeyde kırıldığı noktayı bulur (İteratif Çözüm).
-    """
-    x_min = min(obs[0], obj[0])
-    x_max = max(obs[0], obj[0])
-    
-    # İteratif olarak yüzeydeki en uygun x noktasını bul (Binary Search benzeri)
-    for _ in range(50):
-        mid_x = (x_min + x_max) / 2
+    <div class="info">
+        * Gözü (Siyah) veya Nesneyi (Kırmızı) farenizle sürükleyebilirsiniz. <br>
+        * Pembe daire, gözün nesneyi gördüğü (zahiri) konumu temsil eder.
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const n1Slider = document.getElementById('n1Range');
+        const n2Slider = document.getElementById('n2Range');
+        const n1ValLabel = document.getElementById('n1Val');
+        const n2ValLabel = document.getElementById('n2Val');
+
+        // Sabitler
+        const SURFACE_Y = canvas.height / 2;
         
-        # Açılar (Normal ile yapılan)
-        theta_top = math.atan2(abs(mid_x - obs[0]), abs(SURFACE_Y - obs[1]))
-        theta_bottom = math.atan2(abs(mid_x - obj[0]), abs(SURFACE_Y - obj[1]))
-        
-        # Snell: n1 * sin(t1) = n2 * sin(t2)
-        if n_t * math.sin(theta_top) < n_b * math.sin(theta_bottom):
-            if obs[0] < obj[0]: x_min = mid_x
-            else: x_max = mid_x
-        else:
-            if obs[0] < obj[0]: x_max = mid_x
-            else: x_min = mid_x
+        // Durum Değişkenleri
+        let n1 = 1.0;
+        let n2 = 1.33;
+        let eyePos = { x: 150, y: 100 };
+        let objPos = { x: 600, y: 400 };
+        let isDraggingEye = false;
+        let isDraggingObj = false;
+
+        // Mouse Etkinlikleri
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            if (Math.hypot(mouseX - eyePos.x, mouseY - eyePos.y) < 20) isDraggingEye = true;
+            else if (Math.hypot(mouseX - objPos.x, mouseY - objPos.y) < 20) isDraggingObj = true;
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDraggingEye = false;
+            isDraggingObj = false;
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            if (isDraggingEye) {
+                eyePos.x = mouseX;
+                eyePos.y = Math.min(mouseY, SURFACE_Y - 20);
+            }
+            if (isDraggingObj) {
+                objPos.x = mouseX;
+                objPos.y = Math.max(mouseY, SURFACE_Y + 20);
+            }
+            draw();
+        });
+
+        n1Slider.oninput = function() { n1 = parseFloat(this.value); n1ValLabel.innerText = n1.toFixed(2); draw(); };
+        n2Slider.oninput = function() { n2 = parseFloat(this.value); n2ValLabel.innerText = n2.toFixed(2); draw(); };
+
+        // Snell Yasasına göre kırılma noktasını bul (Binary Search)
+        function findRefractionPoint(eye, obj, n_top, n_bot) {
+            let low = Math.min(eye.x, obj.x) - 500; // Geniş bir alan tarıyoruz
+            let high = Math.max(eye.x, obj.x) + 500;
             
-    return mid_x
+            for (let i = 0; i < 40; i++) {
+                let mid = (low + high) / 2;
+                let theta1 = Math.atan2(Math.abs(mid - eye.x), Math.abs(SURFACE_Y - eye.y));
+                let theta2 = Math.atan2(Math.abs(mid - obj.x), Math.abs(SURFACE_Y - obj.y));
+                
+                // n1 * sin(t1) = n2 * sin(t2)
+                if (n_top * Math.sin(theta1) < n_bot * Math.sin(theta2)) {
+                    if (eye.x < obj.x) low = mid; else high = mid;
+                } else {
+                    if (eye.x < obj.x) high = mid; else low = mid;
+                }
+            }
+            return (low + high) / 2;
+        }
 
-running = True
-dragging_obs = False
-dragging_obj = False
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-while running:
-    screen.fill(WHITE)
-    
-    # Ortamları çiz
-    pygame.draw.rect(screen, (200, 240, 255), (0, 0, WIDTH, SURFACE_Y))        # Üst
-    pygame.draw.rect(screen, (100, 150, 255), (0, SURFACE_Y, WIDTH, HEIGHT//2)) # Alt
-    pygame.draw.line(screen, BLACK, (0, SURFACE_Y), (WIDTH, SURFACE_Y), 3)     # Yüzey
-
-    # Olay Kontrolü
-    mouse_pos = pygame.mouse.get_pos()
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if math.hypot(mouse_pos[0]-obs_pos[0], mouse_pos[1]-obs_pos[1]) < 20:
-                dragging_obs = True
-            if math.hypot(mouse_pos[0]-obj_pos[0], mouse_pos[1]-obj_pos[1]) < 20:
-                dragging_obj = True
-        
-        if event.type == pygame.MOUSEBUTTONUP:
-            dragging_obs = False
-            dragging_obj = False
+            // 1. Ortamları Çiz
+            ctx.fillStyle = "#e0f7fa"; // Hava
+            ctx.fillRect(0, 0, canvas.width, SURFACE_Y);
+            ctx.fillStyle = "#0277bd"; // Su
+            ctx.fillRect(0, SURFACE_Y, canvas.width, canvas.height - SURFACE_Y);
             
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_UP: n_top += 0.05
-            if event.key == pygame.K_DOWN: n_top = max(0.1, n_top - 0.05)
-            if event.key == pygame.K_RIGHT: n_bottom += 0.05
-            if event.key == pygame.K_LEFT: n_bottom = max(0.1, n_bottom - 0.05)
+            // Yüzey Çizgisi
+            ctx.strokeStyle = "#333";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, SURFACE_Y);
+            ctx.lineTo(canvas.width, SURFACE_Y);
+            ctx.stroke();
 
-    if dragging_obs: 
-        obs_pos[0], obs_pos[1] = mouse_pos[0], min(mouse_pos[1], SURFACE_Y - 10)
-    if dragging_obj: 
-        obj_pos[0], obj_pos[1] = mouse_pos[0], max(mouse_pos[1], SURFACE_Y + 10)
+            // 2. Hesaplamalar
+            let surfX = findRefractionPoint(eyePos, objPos, n1, n2);
+            
+            // Zahiri (Görünen) Derinlik Hesabı
+            // Gözden gelen ışın açısını bulup geriye doğru uzatıyoruz
+            let angleAtEye = Math.atan2(SURFACE_Y - eyePos.y, surfX - eyePos.x);
+            let slope = (eyePos.y - SURFACE_Y) / (eyePos.x - surfX);
+            let apparentY = SURFACE_Y + (objPos.x - surfX) * slope;
 
-    # 1. Kırılma Noktasını Hesapla
-    surface_x = get_refraction_point(obs_pos, obj_pos, n_top, n_bottom)
-    
-    # 2. Işınları Çiz
-    # Gerçek ışın yolu (Objeden yüzeye, yüzeyden göze)
-    pygame.draw.line(screen, (255, 255, 0), obj_pos, (surface_x, SURFACE_Y), 3)
-    pygame.draw.line(screen, (255, 255, 0), (surface_x, SURFACE_Y), obs_pos, 3)
-    
-    # 3. Zahiri (Görünen) Işın ve Görüntü Hesabı
-    # Gözden çıkan ışının doğrusal uzantısını bul
-    angle_obs = math.atan2(obs_pos[1] - SURFACE_Y, obs_pos[0] - surface_x)
-    # Zahiri görüntü nesnenin dikey hizasında oluşur (yaklaşık)
-    # Daha hassas olması için ışın doğrultusu ile nesne dikeyini kesiştiriyoruz
-    apparent_x = obj_pos[0]
-    dist_x = abs(apparent_x - surface_x)
-    # Gözden gelen ışın açısıyla yüzey altındaki derinliği bul
-    slope = (obs_pos[1] - SURFACE_Y) / (obs_pos[0] - surface_x)
-    apparent_y = SURFACE_Y + (apparent_x - surface_x) * slope
-    
-    # Zahiri ışın (kesikli çizgi efekti)
-    pygame.draw.line(screen, (200, 200, 200), (surface_x, SURFACE_Y), (apparent_x, apparent_y), 2)
-    
-    # 4. Nesneleri Çiz
-    # Göz (Gözlemci)
-    pygame.draw.circle(screen, (50, 50, 50), obs_pos, 15)
-    pygame.draw.circle(screen, WHITE, (obs_pos[0]+5, obs_pos[1]-5), 4) # Parlama
-    
-    # Gerçek Nesne (Kırmızı)
-    pygame.draw.circle(screen, (255, 0, 0), obj_pos, 12)
-    
-    # Zahiri Görüntü (Soluk Kırmızı)
-    pygame.draw.circle(screen, (255, 150, 150), (int(apparent_x), int(apparent_y)), 10)
+            // 3. Işınları Çiz
+            // Gerçek Işın
+            ctx.setLineDash([]);
+            ctx.strokeStyle = "yellow";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(objPos.x, objPos.y);
+            ctx.lineTo(surfX, SURFACE_Y);
+            ctx.lineTo(eyePos.x, eyePos.y);
+            ctx.stroke();
 
-    # 5. Bilgi Paneli
-    infos = [
-        f"Üst İndis (n1): {n_top:.2f} (Yön Tuşları: Alt/Üst)",
-        f"Alt İndis (n2): {n_bottom:.2f} (Yön Tuşları: Sağ/Sol)",
-        "Gözü veya Nesneyi farenizle sürükleyin.",
-        f"Gerçek Derinlik: {int(obj_pos[1] - SURFACE_Y)} px",
-        f"Görünür Derinlik: {int(apparent_y - SURFACE_Y)} px"
-    ]
-    for i, text in enumerate(infos):
-        img = font.render(text, True, BLACK)
-        screen.blit(img, (20, 20 + i*25))
+            // Zahiri Işın (Kesikli)
+            ctx.setLineDash([5, 5]);
+            ctx.strokeStyle = "#aaa";
+            ctx.beginPath();
+            ctx.moveTo(surfX, SURFACE_Y);
+            ctx.lineTo(objPos.x, apparentY);
+            ctx.stroke();
 
-    pygame.display.flip()
+            // 4. Nesneleri Çiz
+            // Gerçek Nesne
+            ctx.setLineDash([]);
+            ctx.fillStyle = "red";
+            ctx.beginPath();
+            ctx.arc(objPos.x, objPos.y, 12, 0, Math.PI * 2);
+            ctx.fill();
 
-pygame.quit()
+            // Zahiri Nesne
+            ctx.fillStyle = "rgba(255, 100, 100, 0.6)";
+            ctx.beginPath();
+            ctx.arc(objPos.x, apparentY, 10, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Gözlemci (Göz)
+            ctx.fillStyle = "black";
+            ctx.beginPath();
+            ctx.arc(eyePos.x, eyePos.y, 15, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "white";
+            ctx.beginPath();
+            ctx.arc(eyePos.x + 5, eyePos.y - 5, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Yazılar
+            ctx.fillStyle = "black";
+            ctx.font = "14px Arial";
+            ctx.fillText(`Gerçek Derinlik: ${Math.round(objPos.y - SURFACE_Y)} px`, 10, 20);
+            ctx.fillText(`Görünür Derinlik: ${Math.round(apparentY - SURFACE_Y)} px`, 10, 40);
+        }
+
+        draw(); // İlk çizim
+    </script>
+</body>
+</html>
