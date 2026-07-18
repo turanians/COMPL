@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Young Deneyi Simülasyonu - Eğik Perde Modeli</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #121214;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+        h1 {
+            color: #00adb5;
+            margin-bottom: 5px;
+        }
+        .container {
+            background: #1e1e24;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            width: 850px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        canvas {
+            background-color: #050508;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+        .controls {
+            width: 100%;
+            margin-top: 20px;
+            background: #2a2a35;
+            padding: 15px;
+            border-radius: 8px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        label {
+            font-weight: bold;
+            font-size: 1.1em;
+            flex: 1.5;
+        }
+        input[type="range"] {
+            flex: 2;
+            margin: 0 20px;
+            accent-color: #00adb5;
+            cursor: pointer;
+        }
+        .value-display {
+            width: 90px;
+            text-align: right;
+            font-family: monospace;
+            color: #00adb5;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Thomas Young Çift Yarık Deneyi</h1>
+    <p style="color: #ff5722; margin-top: 0; font-weight: bold;"></p>
+    
+    <div class="container">
+        <canvas id="youngCanvas" width="820" height="420"></canvas>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="wavelength">Dalga Boyu (&lambda;):</label>
+                <input type="range" id="wavelength" min="380" max="750" value="650">
+                <span id="wavelengthVal" class="value-display">650 nm</span>
+            </div>
+            
+            <div class="control-group">
+                <label for="slitDistance">Yarıklar Arası Uzaklık (d):</label>
+                <input type="range" id="slitDistance" min="20" max="80" value="40">
+                <span id="slitDistanceVal" class="value-display">40 mm</span>
+            </div>
+
+            <div class="control-group">
+                <label for="screenDistance">Yarık - Merkez Perde Mesafesi (L):</label>
+                <input type="range" id="screenDistance" min="100" max="230" value="160">
+                <span id="screenDistanceVal" class="value-display">160 cm</span>
+            </div>
+
+            <div class="control-group">
+                <label for="screenAngle">Perde Dönüş Açısı (&theta;):</label>
+                <input type="range" id="screenAngle" min="-50" max="50" value="0">
+                <span id="screenAngleVal" class="value-display">0 °</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('youngCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const wavelengthSlider = document.getElementById('wavelength');
+        const wavelengthVal = document.getElementById('wavelengthVal');
+        
+        const slitDistanceSlider = document.getElementById('slitDistance');
+        const slitDistanceVal = document.getElementById('slitDistanceVal');
+        
+        const screenDistanceSlider = document.getElementById('screenDistance');
+        const screenDistanceVal = document.getElementById('screenDistanceVal');
+
+        const screenAngleSlider = document.getElementById('screenAngle');
+        const screenAngleVal = document.getElementById('screenAngleVal');
+
+        // Sabit koordinat tabanları
+        const startX = 40;       
+        const singleSlitX = 150; 
+        const doubleSlitX = 320; 
+        const midY = canvas.height / 2;
+        
+        // Çizim güvenliği için girişim deseni kutusu sağda sabitlendi
+        const patternX = 580;    
+
+        function nmToRGB(wavelength) {
+            let r, g, b;
+            if (wavelength >= 380 && wavelength < 440) {
+                r = -(wavelength - 440) / (440 - 380); g = 0; b = 1;
+            } else if (wavelength >= 440 && wavelength < 490) {
+                r = 0; g = (wavelength - 440) / (490 - 440); b = 1;
+            } else if (wavelength >= 490 && wavelength < 510) {
+                r = 0; g = 1; b = -(wavelength - 510) / (510 - 490);
+            } else if (wavelength >= 510 && wavelength < 580) {
+                r = (wavelength - 510) / (580 - 510); g = 1; b = 0;
+            } else if (wavelength >= 580 && wavelength < 645) {
+                r = 1; g = -(wavelength - 645) / (645 - 580); b = 0;
+            } else if (wavelength >= 645 && wavelength <= 750) {
+                r = 1; g = 0; b = 0;
+            } else {
+                r = 0; g = 0; b = 0;
+            }
+            return { r: Math.round(r*255), g: Math.round(g*255), b: Math.round(b*255) };
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Slider değerlerini toplama
+            const lambda = parseInt(wavelengthSlider.value);
+            wavelengthVal.innerText = lambda + " nm";
+
+            const d = parseInt(slitDistanceSlider.value);
+            slitDistanceVal.innerText = d + " mm";
+
+            const L_mid = parseInt(screenDistanceSlider.value);
+            screenDistanceVal.innerText = L_mid + " cm";
+
+            const angleDeg = parseInt(screenAngleSlider.value);
+            screenAngleVal.innerText = angleDeg + " °";
+            
+            // Açıyı radyana çevir
+            const angleRad = (angleDeg * Math.PI) / 180;
+
+            const rgb = nmToRGB(lambda);
+            const mainColor = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+            const waveColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.22)`;
+
+            const factor = 190; 
+            const minY = 40;
+            const maxY = canvas.height - 40;
+
+            // Perdenin tam orta noktasının X koordinatı
+            const screenMidX = doubleSlitX + L_mid;     
+
+            // Etiketler
+            ctx.fillStyle = "#888";
+            ctx.font = "11px sans-serif";
+            ctx.fillText("Işık Kaynağı", startX - 20, midY - 35);
+            ctx.fillText("Tek Yarık", singleSlitX - 25, 30);
+            ctx.fillText("Çift Yarık", doubleSlitX - 25, 30);
+            ctx.fillText("Dönen Perde", screenMidX - 30, 30);
+            ctx.fillText("Asimetrik Girişim Deseni", patternX, 30);
+
+            // Işık Kaynağı Görseli
+            ctx.beginPath();
+            ctx.arc(startX, midY, 15, 0, Math.PI * 2);
+            ctx.fillStyle = mainColor;
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = mainColor;
+            ctx.fill();
+            ctx.shadowBlur = 0; 
+
+            ctx.fillStyle = "#666";
+            ctx.fillRect(startX - 5, midY + 15, 10, 15);
+
+            // Sol dalga setleri
+            const waveStep = (lambda - 380) * (24 - 11) / (750 - 380) + 11;
+            
+            // Yarıklar arası Y hizalaması
+            const slitY1 = midY - d / 2;
+            const slitY2 = midY + d / 2;
+
+            // Arka plan çizgileriyle dalga yayılım sınırını çizmek yerine, 
+            // Doğrudan perdenin eğimine çarpan dinamik dalga efekti simülasyonu
+            ctx.strokeStyle = waveColor;
+            ctx.lineWidth = 1.2;
+            for (let r = 15; r < 250; r += waveStep) {
+                // Kaynaktan tek yarığa
+                if (r < singleSlitX - startX) {
+                    ctx.beginPath(); ctx.arc(startX, midY, r, -Math.PI / 2, Math.PI / 2); ctx.stroke();
+                }
+                // Tek yarıktan çift yarığa
+                if (r < doubleSlitX - singleSlitX) {
+                    ctx.beginPath(); ctx.arc(singleSlitX, midY, r, -Math.PI / 2, Math.PI / 2); ctx.stroke();
+                }
+                
+                // Çift yarıktan çıkan dalgalar: Perdenin o anki Y noktasındaki X sınırını aşamaz
+                ctx.beginPath();
+                ctx.arc(doubleSlitX, slitY1, r, -Math.PI / 2, Math.PI / 2);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(doubleSlitX, slitY2, r, -Math.PI / 2, Math.PI / 2);
+                ctx.stroke();
+            }
+
+            // Engeller (Yarıklar)
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(singleSlitX, minY, 4, midY - minY - 6);
+            ctx.fillRect(singleSlitX, midY + 6, 4, maxY - midY - 6);
+
+            ctx.fillRect(doubleSlitX, minY, 4, slitY1 - minY - 5);
+            ctx.fillRect(doubleSlitX, slitY1 + 5, 4, d - 10); 
+            ctx.fillRect(doubleSlitX, slitY2 + 5, 4, maxY - slitY2 - 5);
+
+            // --- DÖNEN PERDE ÇİZİMİ ---
+            // Merkez (screenMidX, midY) etrafında dönüş hesabı
+            const halfHeight = (maxY - minY) / 2;
+            const screenTopX = screenMidX - halfHeight * Math.sin(angleRad);
+            const screenBottomX = screenMidX + halfHeight * Math.sin(angleRad);
+
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(screenTopX, minY);
+            ctx.lineTo(screenBottomX, maxY);
+            ctx.stroke();
+
+            // --- ASİMETRİK GİRİŞİM DESENİ HESABI ---
+            // Her bir y pikseli için yarık-perde mesafesi L(y) dinamik olarak değişir!
+            for (let y = minY; y < maxY; y++) {
+                const dy = y - midY;
+                
+                // Doğrusal eğim denklemi: L(y) = L_merkez + dy * tan(theta)
+                const L_dynamic = L_mid + dy * Math.tan(angleRad);
+
+                // Fiziksel çökme koruması (Perde yarıklara çok yaklaşırsa hata vermesin diye sıfıra yaklaşma sınırı)
+                const L_safe = Math.max(10, L_dynamic);
+
+                const phase = (Math.PI * d * dy) / (lambda * L_safe * (factor / 100000));
+                const intensity = Math.pow(Math.cos(phase), 2); 
+
+                ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${intensity})`;
+                ctx.fillRect(patternX, y, 60, 1);
+            }
+
+            // Desen Çerçevesi
+            ctx.strokeStyle = "#444";
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(patternX, minY, 60, maxY - minY);
+
+            // --- SABİT MERKEZ OK İŞARETÇİSİ ---
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = "rgba(255,255,255,0.6)";
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 10px sans-serif";
+            ctx.beginPath();
+            ctx.moveTo(patternX + 30, midY);
+            ctx.lineTo(patternX + 85, midY - 15);
+            ctx.stroke();
+            ctx.fillText(" Merkez Aydınlık", patternX + 85, midY - 12);
+        }
+
+        // Event Listener Tanımlamaları
+        wavelengthSlider.addEventListener('input', draw);
+        slitDistanceSlider.addEventListener('input', draw);
+        screenDistanceSlider.addEventListener('input', draw);
+        screenAngleSlider.addEventListener('input', draw);
+        
+        draw();
+    </script>
+</body>
+</html>

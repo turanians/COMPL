@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COMPL - Computational Physics Laboratory</title>
+    <style>
+        :root {
+            --bg-main: #0a0a0f;
+            --bg-card: #12121a;
+            --bg-card-hover: #1a1a26;
+            --accent-blue: #4dabf7;
+            --accent-green: #51cf66;
+            --text-main: #f8f9fa;
+            --text-muted: #adb5bd;
+            --border-color: #2c2c3e;
+        }
+
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-main); color: var(--text-main); margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        header { text-align: center; padding: 60px 20px 40px 20px; max-width: 800px; }
+        header h1 { font-size: 3rem; margin: 0; background: linear-gradient(45deg, var(--accent-blue), #91a7ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 2px; }
+        header p { font-size: 1.2rem; color: var(--text-muted); margin-top: 15px; font-style: italic; }
+        .stats-bar { display: flex; gap: 20px; justify-content: center; margin-top: 20px; font-family: monospace; font-size: 0.9rem; color: var(--accent-green); }
+        .container { max-width: 1200px; width: 100%; padding: 0 20px 60px 20px; box-sizing: border-box; }
+        .physics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 25px; }
+        .card { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 25px; transition: all 0.3s ease; display: flex; flex-direction: column; }
+        .card:hover { transform: translateY(-5px); border-color: var(--accent-blue); box-shadow: 0 8px 24px rgba(77, 171, 247, 0.15); background-color: var(--bg-card-hover); }
+        .card h2 { font-size: 1.4rem; margin: 0 0 10px 0; color: #ff922b; display: flex; justify-content: space-between; }
+        .card p { font-size: 0.95rem; color: var(--text-muted); line-height: 1.5; margin: 0 0 20px 0; flex-grow: 1; }
+        .sim-list { list-style: none; padding: 0; margin: 0; }
+        .sim-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-top: 1px solid #222; font-size: 0.9rem; }
+        .btn-launch { display: inline-flex; align-items: center; background-color: #228be6; color: #fff; text-decoration: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; }
+        .status-locked { font-size: 0.8rem; color: #868e96; font-style: italic; background-color: #1a1a24; padding: 4px 8px; border-radius: 4px; border: 1px dashed #444; }
+        footer { margin-top: auto; padding: 30px; font-family: monospace; font-size: 0.85rem; color: #555; border-top: 1px solid #111; width: 100%; text-align: center; }
+        footer a { color: var(--accent-blue); text-decoration: none; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Turan's COMPL</h1>
+        <p>"Imagination is more important than knowledge."</p>
+        <div class="stats-bar">
+            <span>[ SYSTEM: ACTIVE ]</span>
+            <span>[ MODULES: 8/8 ]</span>
+            <span>[ CORE: JS_CANVAS ]</span>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="physics-grid">
+
+            <div class="card">
+                <h2>Klasik Mekanik <span>⚙️</span></h2>
+                <p>Makroskobik cisimlerin hareket yasaları, kuvvet, enerji ve dinamik sistemler.</p>
+                <div class="sim-list">
+                    <div class="sim-item"><span>2D Esnek Çarpışma</span><a href="mekanik/esnek-carpisma.html" class="btn-launch">Başlat 🚀</a></div>
+                    <div class="sim-item"><span>2D Impulse Momentum</span><a href="mekanik/esnekolmayan-carpisma.html" class="btn-launch">Başlat 🚀</a></div>
+                    <div class="sim-item"><span>2D Yay Sarkacı</span><a href="mekanik/yaysarkaci.html" class="btn-launch">Başlat 🚀</a></div>
+                    <div class="sim-item"><span>Kaotik Çift Sarkaç</span><span class="status-locked">Geliştiriliyor</span></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Termodinamik <span>🔥</span></h2>
+                <p>Isı, iş, entropi ve parçacık topluluklarının istatistiksel mekaniği.</p>
+                <div class="sim-list">
+                    <div class="sim-item"><span>Maxwell-Boltzmann Dağılımı</span><span class="status-locked">Yakında</span></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Elektromanyetizma <span>⚡</span></h2>
+                <p>Elektrik yükleri, manyetik alanlar ve dinamik alan vektörleri.</p>
+                <div class="sim-list">
+                    <div class="sim-item"><span>Dinamik Alan Çizgileri</span><span class="status-locked">Yakında</span></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Optik ve Dalgalar <span>🌊</span></h2>
+                <p>Işığın kırılması, yansıması, girişim ve kırınım olguları.</p>
+                <div class="sim-list">
+                    <div class="sim-item"><span>Çift Yarıkta Girişim</span><a href="optik/young.html" class="btn-launch">Başlat 🚀</a></div>
+                    <div class="sim-item"><span>Tek Yarıkta Girişim</span><a href="optik/tek.html" class="btn-launch">Başlat 🚀</a></div>
+                    <div class="sim-item"><span>Aydınlanma</span><a href="optik/aydinlanma.html" class="btn-launch">Başlat 🚀</a></div>
+                    <div class="sim-item"><span>Görünür Derinlik</span><a href="optik/derinlik.html" class="btn-launch">Başlat 🚀</a></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Katıhal Fiziği <span>💎</span></h2>
+                <p>Kristal yapılar, enerji bant teorileri ve mikroskobik özellikler.</p>
+                <div class="sim-list">
+                    <div class="sim-item"><span>Bragg Kırınımı</span><span class="status-locked">Yakında</span></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Atom & Moleküler <span>⚛️</span></h2>
+                <p>Atomun yapısı, elektron yörüngeleri ve etkileşimler.</p>
+                <div class="sim-list">
+                    <div class="sim-item"><span>Bohr Atom Modeli</span><span class="status-locked">Yakında</span></div>
+                </div>
+            </div>
