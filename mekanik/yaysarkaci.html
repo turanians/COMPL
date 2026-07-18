@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8">
+    <title>Yay Sarkacı Laboratuvarı</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        #main-container {
+            display: flex;
+            gap: 20px;
+            background: #252525;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+        }
+        .canvas-box {
+            position: relative;
+        }
+        canvas {
+            background-color: #111;
+            border-radius: 6px;
+            display: block;
+        }
+        #control-panel {
+            width: 250px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background: #1f1f1f;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+        h1 { margin: 0 0 15px 0; color: #00ffff; font-size: 20px; text-align: center; }
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        label { font-size: 14px; color: #ccc; }
+        input[type="range"] { width: 100%; }
+        .value-display { color: #00ffff; font-weight: bold; float: right; }
+        #results {
+            margin-top: 10px;
+            padding-top: 15px;
+            border-top: 1px solid #444;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+        .highlight { color: #ffcc00; font-weight: bold; }
+        .bold-alert { color: #ff3333; font-weight: bold; font-size: 16px; text-align: center; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div id="main-container">
+    <div class="canvas-box">
+        <h1>YAY SARKACI SİMÜLASYONU</h1>
+        <canvas id="simCanvas" width="700" height="500"></canvas>
+    </div>
+
+    <div id="control-panel">
+        <h3>Sistem Ayarları</h3>
+        
+        <div class="slider-group">
+            <label>Kütle (m): <span id="mVal" class="value-display">2.0 kg</span></label>
+            <input type="range" id="massSlider" min="0.5" max="5.0" step="0.1" value="2.0">
+        </div>
+
+        <div class="slider-group">
+            <label>Yay Sabiti (k): <span id="kVal" class="value-display">50 N/m</span></label>
+            <input type="range" id="kSlider" min="10" max="150" step="5" value="50">
+        </div>
+
+        <div class="slider-group">
+            <label>Genlik (A): <span id="ampVal" class="value-display">60 cm</span></label>
+            <input type="range" id="ampSlider" min="20" max="100" step="5" value="60">
+        </div>
+
+        <div id="results">
+            Periyot (T): <span id="periyotRes" class="highlight">0.00 s</span><br>
+            Açısal Frekans (ω): <span id="wRes" class="highlight">0.00 rad/s</span>
+        </div>
+        
+        <div id="alertBox" class="bold-alert"></div>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('simCanvas');
+const ctx = canvas.getContext('2d');
+
+// Elementler
+const massSlider = document.getElementById('massSlider');
+const kSlider = document.getElementById('kSlider');
+const ampSlider = document.getElementById('ampSlider');
+const mVal = document.getElementById('mVal');
+const kVal = document.getElementById('kVal');
+const ampVal = document.getElementById('ampVal');
+const periyotRes = document.getElementById('periyotRes');
+const wRes = document.getElementById('wRes');
+const alertBox = document.getElementById('alertBox');
+
+// Fiziksel Değişkenler
+let m = parseFloat(massSlider.value);
+let k = parseFloat(kSlider.value);
+let A = parseFloat(ampSlider.value); // Genlik (piksel ölçekli simüle edilecek)
+
+let t = 0;
+const dt = 0.016; // Yaklaşık 60 FPS döngüsü
+let positionsHistory = []; // Grafik için konum geçmişi
+
+function guncelleFizik() {
+    m = parseFloat(massSlider.value);
+    k = parseFloat(kSlider.value);
+    A = parseFloat(ampSlider.value);
+
+    mVal.innerText = m.toFixed(1) + " kg";
+    kVal.innerText = k + " N/m";
+    ampVal.innerText = A + " cm";
+
+    // Tam Formül: T = 2 * PI * sqrt(m/k)
+    const omega = Math.sqrt(k / m);
+    const T = 2 * Math.PI / omega;
+
+    periyotRes.innerText = T.toFixed(2) + " s";
+    wRes.innerText = omega.toFixed(2) + " rad/s";
+
+    // Fiziksel Yorum Uyarıları (Büyük ve Renkli)
+    if (k > 100 && m < 1.0) {
+        alertBox.innerText = "SİSTEM ÇOK SERT VE HIZLI!";
+        alertBox.style.color = "#ff3333";
+    } else if (k < 20 && m > 4.0) {
+        alertBox.innerText = "SİSTEM ÇOK GEVŞEK VURGUN!";
+        alertBox.style.color = "#ffcc00";
+    } else {
+        alertBox.innerText = "Harmoniler Kararlı.";
+        alertBox.style.color = "#00ff00";
+    }
+
+    return { omega, T };
+}
+
+function drawSpring(x, y, length, coils) {
+    ctx.strokeStyle = '#aaaaaa';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    
+    const coilLength = length / coils;
+    for (let i = 0; i < coils; i++) {
+        const topY = y + i * coilLength;
+        const midY = topY + coilLength / 2;
+        const botY = topY + coilLength;
+        
+        ctx.lineTo(x + 15, midY);
+        ctx.lineTo(x - 15, botY);
+    }
+    ctx.lineTo(x, y + length);
+    ctx.stroke();
+}
+
+function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    const { omega } = guncelleFizik();
+    
+    // Konum denklemi: x(t) = A * cos(w * t)
+    // Ekran merkez koordinatları
+    const springStartX = 150;
+    const springStartY = 50;
+    const equilibriumY = 220; // Denge konumu y ekseni
+    
+    const currentX_t = A * Math.cos(omega * t); // Denge konumundan sapma
+    const massY = equilibriumY + currentX_t;
+    const springLength = massY - springStartY;
+
+    // 1. YAY SARKACINI ÇİZ
+    // Tavan
+    ctx.fillStyle = '#444';
+    ctx.fillRect(springStartX - 50, springStartY - 10, 100, 10);
+    
+    // Yay
+    drawSpring(springStartX, springStartY, springLength, 20);
+    
+    // Kütle (Mavi Blok)
+    const boxSize = 20 + m * 8; // Kütleye göre boyut değişimi
+    ctx.fillStyle = '#00ffff';
+    ctx.fillRect(springStartX - boxSize/2, massY, boxSize, boxSize);
+    
+    // Merkez Denge Çizgisi (Kesikli)
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(0, equilibriumY + boxSize/2);
+    ctx.lineTo(canvas.width, equilibriumY + boxSize/2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 2. KONUM-ZAMAN GRAFİĞİNİ ÇİZECEKSİN
+    const graphStartX = 320;
+    const graphWidth = 350;
+    
+    // Grafik Eksenleri
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 1;
+    // Zaman Ekseni (Zemindeki yatay çizgi)
+    ctx.beginPath();
+    ctx.moveTo(graphStartX, equilibriumY + boxSize/2);
+    ctx.lineTo(graphStartX + graphWidth, equilibriumY + boxSize/2);
+    ctx.stroke();
+    // Konum Ekseni (Dikey çizgi)
+    ctx.beginPath();
+    ctx.moveTo(graphStartX, 50);
+    ctx.lineTo(graphStartX, 450);
+    ctx.stroke();
+    
+    // Grafik Etiketleri
+    ctx.fillStyle = '#aaa';
+    ctx.font = '12px sans-serif';
+    ctx.fillText("Zaman (t)", graphStartX + graphWidth - 60, equilibriumY + boxSize/2 - 10);
+    ctx.fillText("+A (Uzanım)", graphStartX + 10, equilibriumY - A + 15);
+    ctx.fillText("-A", graphStartX + 10, equilibriumY + A + 15);
+
+    // Veri kaydet ve kaydır
+    positionsHistory.unshift(currentX_t);
+    if (positionsHistory.length > graphWidth) {
+        positionsHistory.pop();
+    }
+
+    // Sinüs dalgasını grafik alanına çizdir
+    ctx.strokeStyle = '#ff3333';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i < positionsHistory.length; i++) {
+        const gx = graphStartX + i;
+        const gy = equilibriumY + boxSize/2 + positionsHistory[i];
+        if (i === 0) ctx.moveTo(gx, gy);
+        else ctx.lineTo(gx, gy);
+    }
+    ctx.stroke();
+
+    // Grafiğin ucundaki canlı hareketli kırmızı nokta
+    if (positionsHistory.length > 0) {
+        ctx.fillStyle = '#ffcc00';
+        ctx.beginPath();
+        ctx.arc(graphStartX, equilibriumY + boxSize/2 + positionsHistory[0], 5, 0, 2 * Math.PI);
+        ctx.fill();
+    }
+
+    t += dt;
+    requestAnimationFrame(animate);
+}
+
+// Slider tetikleyicileri
+massSlider.oninput = guncelleFizik;
+kSlider.oninput = guncelleFizik;
+ampSlider.oninput = guncelleFizik;
+
+// Başlat
+animate();
+</script>
+
+</body>
+</html>

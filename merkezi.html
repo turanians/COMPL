@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Merkezi Esnek Çarpışma Simülasyonu</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+        h1 { color: #333; margin-bottom: 10px; }
+        #canvasContainer {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+            background: #fff;
+        }
+        canvas { display: block; background: #fafafa; }
+        .controls {
+            margin-top: 20px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            width: 760px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .control-group h3 { margin: 0 0 5px 0; color: #444; }
+        .slider-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        label { font-size: 14px; color: #666; width: 80px; }
+        input[type="range"] { flex-grow: 1; margin: 0 10px; }
+        .val { font-weight: bold; width: 50px; text-align: right; }
+        .buttons {
+            grid-column: span 2;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #0056b3; }
+        #resetBtn { background-color: #6c757d; }
+        #resetBtn:hover { background-color: #545b62; }
+    </style>
+</head>
+<body>
+
+    <h1>Merkezi Esnek Çarpışma Simülasyonu</h1>
+    
+    <div id="canvasContainer">
+        <canvas id="simCanvas" width="800" height="300"></canvas>
+    </div>
+
+    <div class="controls">
+        <div class="control-group" style="border-right: 1px solid #eee; padding-right: 20px;">
+            <h3 style="color: #ff4757;">1. Cisim (Kırmızı)</h3>
+            <div class="slider-row">
+                <label>Kütle (m₁):</label>
+                <input type="range" id="m1Sl" min="1" max="10" step="0.5" value="3">
+                <span id="m1Val" class="val">3 kg</span>
+            </div>
+            <div class="slider-row">
+                <label>Hız (v₁):</label>
+                <input type="range" id="v1Sl" min="-10" max="10" step="0.5" value="4">
+                <span id="v1Val" class="val">4 m/s</span>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h3 style="color: #1e90ff;">2. Cisim (Mavi)</h3>
+            <div class="slider-row">
+                <label>Kütle (m₂):</label>
+                <input type="range" id="m2Sl" min="1" max="10" step="0.5" value="5">
+                <span id="m2Val" class="val">5 kg</span>
+            </div>
+            <div class="slider-row">
+                <label>Hız (v₂):</label>
+                <input type="range" id="v2Sl" min="-10" max="10" step="0.5" value="-2">
+                <span id="v2Val" class="val">-2 m/s</span>
+            </div>
+        </div>
+
+        <div class="buttons">
+            <button id="startBtn">Başlat / Durdur</button>
+            <button id="resetBtn">Sıfırla</button>
+        </div>
+    </div>
+
+<script>
+const canvas = document.getElementById('simCanvas');
+const ctx = canvas.getContext('2d');
+
+// DOM Elemanları
+const m1Sl = document.getElementById('m1Sl'), m1Val = document.getElementById('m1Val');
+const v1Sl = document.getElementById('v1Sl'), v1Val = document.getElementById('v1Val');
+const m2Sl = document.getElementById('m2Sl'), m2Val = document.getElementById('m2Val');
+const v2Sl = document.getElementById('v2Sl'), v2Val = document.getElementById('v2Val');
+const startBtn = document.getElementById('startBtn');
+const resetBtn = document.getElementById('resetBtn');
+
+// Simülasyon Durumu
+let isRunning = false;
+const Y_AXIS = canvas.height / 2 + 20; 
+const SCALE = 8; // Vektör oku çarpanı
+
+// Cisimlerin ilk tanımları
+let b1 = { x: 200, y: Y_AXIS, m: 3, v: 4, r: 0, color: '#ff4757' };
+let b2 = { x: 600, y: Y_AXIS, m: 5, v: -2, r: 0, color: '#1e90ff' };
+
+// Sürgüler değiştikçe sadece değerleri günceller (Konumlara dokunmaz)
+function updateInputs() {
+    b1.m = parseFloat(m1Sl.value);
+    m1Val.innerText = b1.m + " kg";
+    b2.m = parseFloat(m2Sl.value);
+    m2Val.innerText = b2.m + " kg";
+    
+    // Eğer simülasyon çalışmıyorsa hız sürgüleri cismin anlık hızını belirler
+    if (!isRunning) {
+        b1.v = parseFloat(v1Sl.value);
+        b2.v = parseFloat(v2Sl.value);
+    }
+    
+    v1Val.innerText = b1.v.toFixed(1) + " m/s";
+    v2Val.innerText = b2.v.toFixed(1) + " m/s";
+    
+    // Kütleye göre yarıçapları güncelle
+    b1.r = 20 + b1.m * 4;
+    b2.r = 20 + b2.m * 4;
+}
+
+// Tamamen ilk konumlara döndürme fonksiyonu
+function resetSim() {
+    isRunning = false;
+    b1.x = 200;
+    b2.x = 600;
+    // Sürgülerdeki ilk hız değerlerini geri yükle
+    b1.v = parseFloat(v1Sl.value);
+    b2.v = parseFloat(v2Sl.value);
+    updateInputs();
+}
+
+// Ok Çizim Fonksiyonu
+function drawVector(x, y, v, color) {
+    if (v === 0) return;
+    
+    let arrowLength = v * SCALE;
+    let endX = x + arrowLength;
+    
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.fillStyle = color;
+    
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(endX, y);
+    ctx.stroke();
+    
+    let arrowHeadSize = 6;
+    ctx.beginPath();
+    if (v > 0) {
+        ctx.moveTo(endX, y);
+        ctx.lineTo(endX - arrowHeadSize, y - arrowHeadSize);
+        ctx.lineTo(endX - arrowHeadSize, y + arrowHeadSize);
+    } else {
+        ctx.moveTo(endX, y);
+        ctx.lineTo(endX + arrowHeadSize, y - arrowHeadSize);
+        ctx.lineTo(endX + arrowHeadSize, y + arrowHeadSize);
+    }
+    ctx.fill();
+
+    ctx.font = "bold 13px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(v.toFixed(1) + " m/s", x + arrowLength / 2, y - 10);
+}
+
+// Çizim Döngüsü
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Doğrultu çizgisi
+    ctx.strokeStyle = '#ddd';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(0, Y_AXIS);
+    ctx.lineTo(canvas.width, Y_AXIS);
+    ctx.stroke();
+    ctx.setLineDash([]); 
+
+    // Cisimleri çiz
+    [b1, b2].forEach(b => {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        ctx.fillStyle = b.color;
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#333';
+        ctx.stroke();
+        
+        // Kütle metni
+        ctx.fillStyle = '#fff';
+        ctx.font = "bold 14px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(b.m + " kg", b.x, b.y);
+        
+        // Hız vektörü
+        drawVector(b.x, b.y - b.r - 15, b.v, b.color);
+    });
+}
+
+// Esnek Çarpışma Mekaniği
+function checkCollision() {
+    let distance = Math.abs(b1.x - b2.x);
+    let minDistance = b1.r + b2.r;
+    
+    if (distance <= minDistance) {
+        // Üst üste binme hatasını engelleme
+        let overlap = minDistance - distance;
+        let dir = b1.x < b2.x ? -1 : 1;
+        b1.x += (overlap / 2) * dir;
+        b2.x -= (overlap / 2) * dir;
+
+        // Momentum ve Kinetik Enerji Korunumu Formülleri
+        let v1_final = ((b1.m - b2.m) * b1.v + 2 * b2.m * b2.v) / (b1.m + b2.m);
+        let v2_final = ((2 * b1.m * b1.v) + (b2.m - b1.m) * b2.v) / (b1.m + b2.m);
+        
+        b1.v = v1_final;
+        b2.v = v2_final;
+    }
+}
+
+// Ana Döngü
+function update() {
+    if (isRunning) {
+        b1.x += b1.v * 0.4;
+        b2.x += b2.v * 0.4;
+        
+        // Duvarlardan sekme
+        if (b1.x - b1.r < 0) { b1.x = b1.r; b1.v *= -1; }
+        if (b2.x + b2.r > canvas.width) { b2.x = canvas.width - b2.r; b2.v *= -1; }
+        
+        checkCollision();
+        
+        // Sürgülerin text alanlarını anlık güncelle (Sürgünün kendisini bozmadan)
+        v1Val.innerText = b1.v.toFixed(1) + " m/s";
+        v2Val.innerText = b2.v.toFixed(1) + " m/s";
+    }
+    
+    draw();
+    requestAnimationFrame(update);
+}
+
+// Dinleyiciler
+[m1Sl, v1Sl, m2Sl, v2Sl].forEach(slider => {
+    slider.addEventListener('input', updateInputs);
+});
+
+startBtn.addEventListener('click', () => { 
+    isRunning = !isRunning; 
+});
+resetBtn.addEventListener('click', resetSim);
+
+// İlk çalıştırma
+updateInputs();
+update();
+</script>
+
+</body>
+</html>

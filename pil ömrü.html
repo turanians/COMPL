@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paralel Pil ve Ömür Simülasyonu</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f6fa;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+        h1 { color: #2f3640; margin-bottom: 5px; }
+        p { color: #718093; margin-top: 0; margin-bottom: 15px; }
+        
+        #canvasContainer {
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            border-radius: 10px;
+            overflow: hidden;
+            background: #fff;
+        }
+        canvas { display: block; background: #ffffff; cursor: pointer; }
+        
+        .controls {
+            margin-top: 15px;
+            background: #fff;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 770px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 15px;
+            font-weight: bold;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #e74c3c;
+            color: white;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #c0392b; }
+        .instructions {
+            font-size: 13px;
+            color: #7f8c8d;
+            align-self: center;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Paralel Pil ve Ömür Simülasyonu</h1>
+    <p>Paralel Bağlamada Akım Paylaşımı ve Pil Ömrü İlişkisi Analizi</p>
+
+    <div id="canvasContainer">
+        <canvas id="circuitCanvas" width="800" height="420"></canvas>
+    </div>
+
+    <div class="controls">
+        <button id="resetEnergyBtn">Pilleri Şarj Et (Sıfırla)</button>
+        <div class="instructions">
+            💡 <b>İpucu:</b> 2. Pilin önündeki <b>[ Spil ]</b> anahtarına tıklayarak pili devreye alabilir veya çıkarabilirsin.
+        </div>
+    </div>
+
+<script>
+const canvas = document.getElementById('circuitCanvas');
+const ctx = canvas.getContext('2d');
+const resetEnergyBtn = document.getElementById('resetEnergyBtn');
+
+// Fiziksel Sabitler
+const V_cell = 12.0; // Her bir pilin voltajı (Paralel bağlı üreteçlerde toplam voltaj yine 12V kalır)
+const R_load = 6.0;  // Lambanın direnci (Ohm)
+
+// Pil Kapasiteleri (Max: 100000 birim)
+const MAX_CAPACITY = 100000;
+let battery1Energy = MAX_CAPACITY;
+let battery2Energy = MAX_CAPACITY;
+
+// 2. Pilin anahtar durumu (true = kapalı/devrede, false = açık/devre dışı)
+let swBat2 = false; 
+
+// Elektron akışı animasyon ofseti
+let electronOffset = 0;
+
+// Tıklanabilir Anahtar Alanı koordinatları
+const swArea = { x: 180, y: 260, w: 40, h: 20 };
+
+// Pilleri yeniden doldurma butonu
+resetEnergyBtn.addEventListener('click', () => {
+    battery1Energy = MAX_CAPACITY;
+    battery2Energy = MAX_CAPACITY;
+});
+
+// Fare tıklaması ile anahtarı kontrol etme
+canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    if (mouseX >= swArea.x && mouseX <= swArea.x + swArea.w && mouseY >= swArea.y - 10 && mouseY <= swArea.y + swArea.h) {
+        swBat2 = !swBat2;
+    }
+});
+
+// Bilgi Kutusu Çizim Fonksiyonu
+function drawInfoBox(x, y, title, lines, headerBg) {
+    const w = 150;
+    const h = 22 + lines.length * 18;
+    
+    // Kutu gövdesi
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = "#b2bec3";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x, y, w, h);
+    
+    // Başlık şeridi
+    ctx.fillStyle = headerBg;
+    ctx.fillRect(x, y, w, 20);
+    
+    // Başlık metni
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 11px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(title, x + w / 2, y + 14);
+    
+    // Satırlar
+    ctx.fillStyle = "#2d3436";
+    ctx.font = "12px Consolas";
+    ctx.textAlign = "left";
+    lines.forEach((line, index) => {
+        ctx.fillText(line, x + 8, y + 36 + index * 18);
+    });
+}
+
+// Pil Çizimi ve Ömür Barı
+function drawBattery(x, y, label, current, energyPercentage) {
+    // Pil dış kalıbı
+    ctx.fillStyle = "#2c3e50";
+    ctx.fillRect(x, y, 50, 30);
+    ctx.fillRect(x + 50, y + 8, 5, 14); // Artı kutup ucu
+
+    // Enerji Seviye Barı (İç dolgu)
+    if (energyPercentage > 0) {
+        ctx.fillStyle = energyPercentage > 20 ? "#2ecc71" : "#e74c3c";
+        ctx.fillRect(x + 2, y + 2, 46 * (energyPercentage / 100), 26);
+    }
+
+    // Pil ismi metni
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 11px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(label, x + 25, y + 18);
+
+    // Kutup işaretleri
+    ctx.fillStyle = "#2c3e50";
+    ctx.font = "bold 14px Arial";
+    ctx.fillText("+", x + 60, y + 20);
+    ctx.fillText("-", x - 10, y + 20);
+}
+
+// Akış Çizgisi Fonksiyonu
+function drawWire(x1, y1, x2, y2, hasCurrent) {
+    ctx.strokeStyle = "#34495e";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+
+    if (hasCurrent) {
+        ctx.save();
+        ctx.setLineDash([6, 12]);
+        ctx.lineDashOffset = -electronOffset * 2;
+        ctx.strokeStyle = "#00a8ff";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+        ctx.restore();
+    }
+}
+
+// Ana Döngü
+function updateAndDraw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Pillerin canlılık kontrolü
+    let bat1Alive = battery1Energy > 0;
+    let bat2Alive = battery2Energy > 0 && swBat2;
+
+    // Sistem Voltajı ve Akım Hesaplama
+    let current1 = 0;
+    let current2 = 0;
+    let totalCurrent = 0;
+
+    if (bat1Alive && bat2Alive) {
+        // İki pil de aktif: Akım eşit paylaşılır
+        totalCurrent = V_cell / R_load; // 12V / 6 Ohm = 2A
+        current1 = totalCurrent / 2;    // 1A
+        current2 = totalCurrent / 2;    // 1A
+    } else if (bat1Alive) {
+        // Sadece 1. pil aktif
+        totalCurrent = V_cell / R_load; // 2A
+        current1 = totalCurrent;
+        current2 = 0;
+    } else if (bat2Alive) {
+        // Sadece 2. pil aktif
+        totalCurrent = V_cell / R_load; // 2A
+        current1 = 0;
+        current2 = totalCurrent;
+    }
+
+    // Enerji tüketimi (Akımla doğru orantılı azalır)
+    if (battery1Energy > 0) battery1Energy -= current1 * 1.5;
+    if (battery2Energy > 0 && swBat2) battery2Energy -= current2 * 1.5;
+
+    // Sınır koruması
+    if (battery1Energy < 0) battery1Energy = 0;
+    if (battery2Energy < 0) battery2Energy = 0;
+
+    let bat1Pct = (battery1Energy / MAX_CAPACITY) * 100;
+    let bat2Pct = (battery2Energy / MAX_CAPACITY) * 100;
+
+    // --- DEVRE ŞEMASI KABLOLARI VE AKIŞI ---
+    // Ana gövde sağ taraf ve yük hattı
+    drawWire(300, 140, 600, 140, totalCurrent > 0);
+    drawWire(600, 140, 600, 200, totalCurrent > 0); // Lambaya iniş
+    drawWire(600, 240, 600, 300, totalCurrent > 0); // Lambadan çıkış
+    drawWire(600, 300, 100, 300, totalCurrent > 0); // Alt geri dönüş hattı
+    
+    // Sol dikey ana hat dağıtımları
+    drawWire(100, 300, 100, 140, totalCurrent > 0);
+
+    // 1. Pil Kolları (Üst Kol)
+    drawWire(100, 140, 120, 140, current1 > 0);
+    drawWire(170, 140, 300, 140, current1 > 0);
+
+    // 2. Pil Kolları (Alt paralel kol)
+    drawWire(100, 260, 120, 260, current2 > 0);
+    // Anahtar çizimi ara hattı kapsar
+    drawWire(170, 260, 180, 260, current2 > 0); 
+    drawWire(220, 260, 300, 260, current2 > 0 && swBat2);
+    // Paralel birleşme dikey hattı
+    drawWire(300, 140, 300, 260, current2 > 0 && swBat2);
+
+    // --- ELEMANLARIN ÇİZİLMESİ ---
+    
+    // 1. Pil
+    drawBattery(120, 125, "Pil 1", current1, bat1Pct);
+    // 2. Pil
+    drawBattery(120, 245, "Pil 2", current2, bat2Pct);
+
+    // 2. Pil Anahtarı (Spil)
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#2c3e50";
+    ctx.fillStyle = "#2c3e50";
+    ctx.beginPath(); ctx.arc(180, 260, 4, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(220, 260, 4, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(180, 260);
+    if (swBat2) {
+        ctx.lineTo(220, 260);
+    } else {
+        ctx.lineTo(215, 245);
+    }
+    ctx.stroke();
+    ctx.fillStyle = "#7f8c8d";
+    ctx.font = "bold 12px Arial";
+    ctx.fillText("Spil", 193, 235);
+
+    // Yük (Lamba) Çizimi
+    let lampX = 600, lampY = 220;
+    if (totalCurrent > 0) {
+        let gradient = ctx.createRadialGradient(lampX, lampY, 5, lampX, lampY, 40);
+        gradient.addColorStop(0, "rgba(255, 242, 0, 0.6)");
+        gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+        ctx.fillStyle = gradient;
+        ctx.beginPath(); ctx.arc(lampX, lampY, 40, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.fillStyle = totalCurrent > 0 ? "#ffee55" : "#dcdde1";
+    ctx.beginPath(); ctx.arc(lampX, lampY, 20, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = "#34495e";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(lampX - 10, lampY - 10); ctx.lineTo(lampX + 10, lampY + 10);
+    ctx.moveTo(lampX + 10, lampY - 10); ctx.lineTo(lampX - 10, lampY + 10);
+    ctx.stroke();
+    ctx.fillStyle = "#34495e";
+    ctx.font = "bold 12px Arial";
+    ctx.fillText("Lamba (6 Ω)", lampX + 30, lampY + 5);
+
+
+    // --- KUTUCUKLAR (ANALİZ PANELLERİ) ---
+    
+    // Pil 1 Gösterge Kutusu
+    drawInfoBox(40, 20, "PİL 1 ANALİZ", [
+        `Akım : ${current1.toFixed(2)} A`,
+        `Ömür : %${bat1Pct.toFixed(1)}`
+    ], "#2980b9");
+
+    // Pil 2 Gösterge Kutusu
+    drawInfoBox(210, 20, "PİL 2 ANALİZ", [
+        `Durum: ${swBat2 ? 'BAGLI' : 'ACIK'}`,
+        `Akım : ${current2.toFixed(2)} A`,
+        `Ömür : %${bat2Pct.toFixed(1)}`
+    ], "#27ae60");
+
+    // Genel Devre Durum Kutusu
+    drawInfoBox(420, 20, "DEVRE ÖZETİ", [
+        `Toplam V: ${V_cell.toFixed(1)} V`,
+        `Toplam I: ${totalCurrent.toFixed(2)} A`,
+        `Yük Gücü: ${(totalCurrent * V_cell).toFixed(1)} W`
+    ], "#8e44ad");
+
+
+    // Animasyon hızını güncelle
+    electronOffset += totalCurrent * 0.5;
+
+    requestAnimationFrame(updateAndDraw);
+}
+
+// İlk başlatma
+updateAndDraw();
+</script>
+
+</body>
+</html>
