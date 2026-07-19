@@ -1,1 +1,331 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>İnteraktif Elektrik Devresi Simülasyonu</title>
+  <style>
+    body { font-family: Arial, sans-serif; background-color: #121212; color: #fff; padding: 20px; text-align: center; }
+    .container { max-width: 900px; margin: 0 auto; background: #1e1e1e; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+    canvas { background-color: #000; border-radius: 8px; margin-bottom: 15px; border: 2px solid #333; }
+    
+    .voltage-control { background: #2a2a2a; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; justify-content: center; align-items: center; gap: 15px; font-size: 16px; }
+    .voltage-control input { width: 200px; cursor: pointer; }
+    
+    .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; text-align: left; background: #2a2a2a; padding: 15px; border-radius: 8px; }
+    .group { background: #333; padding: 10px; border-radius: 6px; border: 1px solid #444; }
+    .group h3 { margin-top: 0; color: #00e676; }
+    .control-item { margin-bottom: 10px; font-size: 14px; }
+    select { padding: 6px; font-size: 14px; background: #222; color: #fff; border: 1px solid #555; border-radius: 4px; margin-left: 10px; }
+    
+    .info { font-weight: bold; font-size: 16px; margin-top: 15px; padding: 10px; border-radius: 6px; background: #222; color: #00e676; }
+    .warning { background: #d32f2f !important; color: #fff !important; animation: blink 1s infinite; }
+    
+    @keyframes blink {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
 
+<div class="container">
+  <h2>Elektrik Devresi Simülasyonu</h2>
+  
+  <div class="voltage-control">
+    <label for="voltageSlider">Pil Gerilimi (Volt): <b id="voltVal" style="color:#ffeb3b">12 V</b></label>
+    <input type="range" id="voltageSlider" min="0" max="24" value="12" step="1" oninput="updateCircuit()">
+  </div>
+
+  <canvas id="circuitCanvas" width="800" height="360"></canvas>
+  
+  <div class="controls">
+    <div class="group">
+      <h3>Grup A (3 Paralel Kol)</h3>
+      <div class="control-item">Kanal 1: 
+        <select id="r1" onchange="updateCircuit()">
+          <option value="lamp">Direnç / Lamba</option>
+          <option value="ammeter">Ampermetre (A)</option>
+          <option value="voltmeter">Voltmetre (V)</option>
+          <option value="switch_open">Açık Anahtar</option>
+          <option value="switch_closed">Kapalı Anahtar</option>
+        </select>
+      </div>
+      <div class="control-item">Kanal 2: 
+        <select id="r2" onchange="updateCircuit()">
+          <option value="lamp">Direnç / Lamba</option>
+          <option value="ammeter">Ampermetre (A)</option>
+          <option value="voltmeter">Voltmetre (V)</option>
+          <option value="switch_open">Açık Anahtar</option>
+          <option value="switch_closed">Kapalı Anahtar</option>
+        </select>
+      </div>
+      <div class="control-item">Kanal 3: 
+        <select id="r3" onchange="updateCircuit()">
+          <option value="lamp">Direnç / Lamba</option>
+          <option value="ammeter">Ampermetre (A)</option>
+          <option value="voltmeter">Voltmetre (V)</option>
+          <option value="switch_open">Açık Anahtar</option>
+          <option value="switch_closed">Kapalı Anahtar</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="group">
+      <h3>Grup B (2 Paralel Kol)</h3>
+      <div class="control-item">Kanal 4: 
+        <select id="r4" onchange="updateCircuit()">
+          <option value="lamp">Direnç / Lamba</option>
+          <option value="ammeter">Ampermetre (A)</option>
+          <option value="voltmeter">Voltmetre (V)</option>
+          <option value="switch_open">Açık Anahtar</option>
+          <option value="switch_closed">Kapalı Anahtar</option>
+        </select>
+      </div>
+      <div class="control-item">Kanal 5: 
+        <select id="r5" onchange="updateCircuit()">
+          <option value="lamp">Direnç / Lamba</option>
+          <option value="ammeter">Ampermetre (A)</option>
+          <option value="voltmeter">Voltmetre (V)</option>
+          <option value="switch_open">Açık Anahtar</option>
+          <option value="switch_closed">Kapalı Anahtar</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="info" id="status">Ana Akım: 0.00 A</div>
+</div>
+
+<script>
+const canvas = document.getElementById("circuitCanvas");
+const ctx = canvas.getContext("2d");
+
+const R_lamp = 10; // Her lambanın direnci (Ohm)
+let animOffset = 0;
+let isShortCircuit = false;
+let currentData = { I_total: 0, I_branches: [0,0,0,0,0] };
+
+function getBranchResistance(type) {
+  if (type === 'lamp') return R_lamp;
+  if (type === 'ammeter' || type === 'switch_closed') return 0.0001; // İdeal kısa devre/iletken
+  if (type === 'voltmeter' || type === 'switch_open') return Infinity; // Akım geçmez
+  return R_lamp;
+}
+
+function updateCircuit() {
+  const V_battery = parseFloat(document.getElementById("voltageSlider").value);
+  document.getElementById("voltVal").innerText = V_battery + " V";
+
+  const types = [
+    document.getElementById("r1").value,
+    document.getElementById("r2").value,
+    document.getElementById("r3").value,
+    document.getElementById("r4").value,
+    document.getElementById("r5").value
+  ];
+
+  const R = types.map(getBranchResistance);
+
+  // Grup A Eşdeğer Direnç
+  const invA = (1/R[0]) + (1/R[1]) + (1/R[2]);
+  const ReqA = invA === 0 ? Infinity : 1 / invA;
+
+  // Grup B Eşdeğer Direnç
+  const invB = (1/R[3]) + (1/R[4]);
+  const ReqB = invB === 0 ? Infinity : 1 / invB;
+
+  const ReqTotal = ReqA + ReqB;
+
+  // Kısa devre veya açık devre durumları
+  isShortCircuit = (V_battery > 0 && ReqTotal < 0.01);
+
+  let I_total = 0;
+  let I_branches = [0,0,0,0,0];
+
+  if (!isShortCircuit && ReqTotal !== Infinity && !isNaN(ReqTotal) && ReqTotal > 0) {
+    I_total = V_battery / ReqTotal;
+
+    // Gerilim Bölünmesi
+    const V_A = I_total * ReqA;
+    const V_B = I_total * ReqB;
+
+    I_branches[0] = R[0] === Infinity ? 0 : V_A / R[0];
+    I_branches[1] = R[1] === Infinity ? 0 : V_A / R[1];
+    I_branches[2] = R[2] === Infinity ? 0 : V_A / R[2];
+    I_branches[3] = R[3] === Infinity ? 0 : V_B / R[3];
+    I_branches[4] = R[4] === Infinity ? 0 : V_B / R[4];
+  }
+
+  currentData = { I_total, I_branches, types };
+
+  const statusEl = document.getElementById("status");
+  if (isShortCircuit) {
+    statusEl.innerText = "🚨 TEHLİKE: KISA DEVRE! Yüksek akım nedeniyle sistem durduruldu.";
+    statusEl.className = "info warning";
+  } else {
+    statusEl.innerText = `Ana Akım: ${I_total.toFixed(2)} A | Voltmetre kollarından akım geçmez (0 A).`;
+    statusEl.className = "info";
+  }
+}
+
+function drawSymbol(x, y, type, current) {
+  // Lamba ise Akıma Bağlı Parlaklık Efekti (Glow)
+  if (type === 'lamp' && current > 0.01 && !isShortCircuit) {
+    const glowRadius = Math.min(15 + current * 15, 45);
+    const gradient = ctx.createRadialGradient(x, y, 5, x, y, glowRadius);
+    gradient.addColorStop(0, "rgba(255, 235, 59, 0.9)");
+    gradient.addColorStop(0.5, "rgba(255, 193, 7, 0.4)");
+    gradient.addColorStop(1, "rgba(255, 193, 7, 0)");
+    
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(x, y, glowRadius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Daire Arka Plan
+  ctx.fillStyle = "#222";
+  ctx.beginPath();
+  ctx.arc(x, y, 18, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = isShortCircuit ? "#ff1744" : "#fff";
+  ctx.stroke();
+
+  ctx.font = "bold 13px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  if (type === 'lamp') {
+    ctx.fillStyle = current > 0.01 && !isShortCircuit ? "#ffeb3b" : "#777";
+    ctx.fillText("💡", x, y);
+  } else if (type === 'ammeter') {
+    ctx.fillStyle = "#00e676";
+    ctx.fillText("A", x, y);
+  } else if (type === 'voltmeter') {
+    ctx.fillStyle = "#ff5252";
+    ctx.fillText("V", x, y);
+  } else if (type === 'switch_open') {
+    ctx.strokeStyle = "#fff";
+    ctx.beginPath(); ctx.moveTo(x - 8, y + 5); ctx.lineTo(x + 8, y - 6); ctx.stroke();
+  } else if (type === 'switch_closed') {
+    ctx.strokeStyle = "#00e676";
+    ctx.beginPath(); ctx.moveTo(x - 10, y); ctx.lineTo(x + 10, y); ctx.stroke();
+  }
+}
+
+function drawCurrentParticles(path, current) {
+  if (current <= 0.001 || isShortCircuit) return;
+  
+  const speed = Math.min(current * 1.5, 8);
+  ctx.fillStyle = "#ffeb3b";
+
+  for (let i = 0; i < path.length - 1; i++) {
+    const p1 = path[i];
+    const p2 = path[i+1];
+    const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+    const count = Math.floor(dist / 20);
+
+    for (let j = 0; j < count; j++) {
+      const offset = (animOffset * speed + j * 20) % dist;
+      const ratio = offset / dist;
+      const px = p1.x + (p2.x - p1.x) * ratio;
+      const py = p1.y + (p2.y - p1.y) * ratio;
+
+      ctx.beginPath();
+      ctx.arc(px, py, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const wireColor = isShortCircuit ? "#ff1744" : "#555";
+  ctx.strokeStyle = wireColor;
+  ctx.lineWidth = 4;
+
+  // --- KABLO HATLARININ ÇİZİMİ ---
+  // Pil ve Ana Hat
+  ctx.beginPath();
+  ctx.moveTo(50, 100); ctx.lineTo(50, 280);
+  ctx.moveTo(50, 190); ctx.lineTo(100, 190);
+  ctx.moveTo(700, 190); ctx.lineTo(750, 190); ctx.lineTo(750, 280); ctx.lineTo(50, 280);
+  ctx.stroke();
+
+  // Grup A (3 Kol)
+  ctx.beginPath();
+  ctx.moveTo(100, 190); ctx.lineTo(100, 80); ctx.lineTo(100, 300);
+  ctx.moveTo(350, 80); ctx.lineTo(350, 300); ctx.lineTo(350, 190);
+  ctx.moveTo(100, 80); ctx.lineTo(350, 80);
+  ctx.moveTo(100, 190); ctx.lineTo(350, 190);
+  ctx.moveTo(100, 300); ctx.lineTo(350, 300);
+  ctx.stroke();
+
+  // Ara Bağlantı
+  ctx.beginPath(); ctx.moveTo(350, 190); ctx.lineTo(450, 190); ctx.stroke();
+
+  // Grup B (2 Kol)
+  ctx.beginPath();
+  ctx.moveTo(450, 190); ctx.lineTo(450, 110); ctx.lineTo(450, 270);
+  ctx.moveTo(700, 110); ctx.lineTo(700, 270); ctx.lineTo(700, 190);
+  ctx.moveTo(450, 110); ctx.lineTo(700, 110);
+  ctx.moveTo(450, 270); ctx.lineTo(700, 270);
+  ctx.stroke();
+
+  // Pil Sembolü
+  ctx.fillStyle = "#fff"; ctx.fillRect(40, 165, 20, 50);
+  ctx.fillStyle = "#ff1744"; ctx.font = "bold 16px Arial"; ctx.fillText("+", 25, 175);
+  ctx.fillStyle = "#fff"; ctx.fillText("-", 25, 205);
+
+  // Kısa Devre Uyarısı Görseli
+  if (isShortCircuit) {
+    ctx.fillStyle = "rgba(255, 23, 68, 0.2)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#ff1744";
+    ctx.font = "bold 32px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("🚨 KISA DEVRE!", canvas.width / 2, 40);
+  }
+
+  // --- ELEMANLAR ---
+  drawSymbol(225, 80, currentData.types[0], currentData.I_branches[0]);
+  drawSymbol(225, 190, currentData.types[1], currentData.I_branches[1]);
+  drawSymbol(225, 300, currentData.types[2], currentData.I_branches[2]);
+  drawSymbol(575, 110, currentData.types[3], currentData.I_branches[3]);
+  drawSymbol(575, 270, currentData.types[4], currentData.I_branches[4]);
+
+  // --- AKIM TANECİKLERİ (ANIMATION) ---
+  if (!isShortCircuit) {
+    // Ana Yol
+    drawCurrentParticles([{x:50,y:190},{x:100,y:190}], currentData.I_total);
+    
+    // Grup A Kolları
+    drawCurrentParticles([{x:100,y:190},{x:100,y:80},{x:350,y:80},{x:350,y:190}], currentData.I_branches[0]);
+    drawCurrentParticles([{x:100,y:190},{x:350,y:190}], currentData.I_branches[1]);
+    drawCurrentParticles([{x:100,y:190},{x:100,y:300},{x:350,y:300},{x:350,y:190}], currentData.I_branches[2]);
+
+    // Ara Yol
+    drawCurrentParticles([{x:350,y:190},{x:450,y:190}], currentData.I_total);
+
+    // Grup B Kolları
+    drawCurrentParticles([{x:450,y:190},{x:450,y:110},{x:700,y:110},{x:700,y:190}], currentData.I_branches[3]);
+    drawCurrentParticles([{x:450,y:190},{x:450,y:270},{x:700,y:270},{x:700,y:190}], currentData.I_branches[4]);
+
+    // Dönüş Yolu
+    drawCurrentParticles([{x:700,y:190},{x:750,y:190},{x:750,y:280},{x:50,y:280},{x:50,y:190}], currentData.I_total);
+  }
+
+  animOffset += 0.5;
+  requestAnimationFrame(render);
+}
+
+// Başlatma
+updateCircuit();
+render();
+</script>
+
+</body>
+</html>

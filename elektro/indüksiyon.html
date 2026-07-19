@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Lenz Yasası - Tam Fizik Simülasyonu</title>
+  <style>
+    body { font-family: Arial, sans-serif; background-color: #121212; color: #fff; padding: 20px; text-align: center; }
+    .container { max-width: 980px; margin: 0 auto; background: #1e1e1e; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+    canvas { background-color: #050505; border-radius: 8px; margin-bottom: 15px; border: 2px solid #333; }
+    
+    .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; text-align: left; background: #2a2a2a; padding: 15px; border-radius: 8px; }
+    .group { background: #333; padding: 12px; border-radius: 6px; border: 1px solid #444; }
+    .group h3 { margin-top: 0; color: #00e676; font-size: 16px; }
+    .control-item { margin-bottom: 12px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+    input[type="range"] { width: 140px; cursor: pointer; }
+    
+    .info-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px; }
+    .info-box { background: #222; padding: 12px; border-radius: 6px; font-size: 14px; text-align: left; border-left: 4px solid #00e676; }
+    .info-box.ind { border-left-color: #ffeb3b; }
+    
+    .badge { padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 13px; }
+    .badge-primary { background: #0288d1; color: #fff; }
+    .badge-self-opp { background: #d32f2f; color: #fff; }
+    .badge-self-supp { background: #388e3c; color: #fff; }
+    .badge-ind { background: #fbc02d; color: #000; }
+    .lenz-banner { background: #1976d2; color: #fff; font-weight: bold; padding: 8px; border-radius: 6px; margin-bottom: 10px; font-size: 14px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Lenz Yasası, Öz-İndüksiyon & İndüksiyon Kutupları Simülasyonu</h2>
+  
+  <div class="lenz-banner">
+    Lenz Yasası: Akı Değişimi Varsa $i_{öz}$ ve $i_{ind}$ Akımları, Kutupları ve Manyetik Alanlarıyla Zıt/Destek Tepki Verir.
+  </div>
+
+  <canvas id="simCanvas" width="940" height="400"></canvas>
+  
+  <div class="controls">
+    <div class="group">
+      <h3>1. Devre (Primer - Öz-İndüksiyon)</h3>
+      <div class="control-item">
+        <label>Pil Voltajı ($V$): <b id="vVal" style="color:#00e676">12 V</b></label>
+        <input type="range" id="voltage" min="0" max="36" value="12" step="1" oninput="onVoltageChange()">
+      </div>
+      <div class="control-item">
+        <label>Reosta Direnci ($R$): <b id="rVal" style="color:#00e676">10 Ω</b></label>
+        <input type="range" id="rheostat" min="2" max="50" value="10" step="1" oninput="onRheostatChange()">
+      </div>
+      <div class="control-item">
+        <label>1. Bobin Sarımı ($N_1$): <b id="n1Val" style="color:#00e676">10</b></label>
+        <input type="range" id="turns1" min="5" max="25" value="10" step="1" oninput="onTurns1Change()">
+      </div>
+    </div>
+
+    <div class="group">
+      <h3>2. Devre (Sarı Bobin - İndüksiyon)</h3>
+      <div class="control-item">
+        <label>2. Bobin Konumu ($d$): <b id="dVal" style="color:#ffeb3b">100 px</b></label>
+        <input type="range" id="distance" min="60" max="220" value="100" step="1" oninput="onDistanceChange()">
+      </div>
+      <div class="control-item">
+        <label>2. Bobin Sarımı ($N_2$): <b id="n2Val" style="color:#ffeb3b">10</b></label>
+        <input type="range" id="turns2" min="5" max="25" value="10" step="1" oninput="onTurns2Change()">
+      </div>
+    </div>
+  </div>
+
+  <div class="info-panel">
+    <div class="info-box">
+      <b>1. Devre (Öz-İndüksiyon Durumu):</b><br>
+      • Ana Akım: <span id="i1Text" class="badge badge-primary">1.20 A</span><br>
+      • Öz-İndüksiyon ($i_{öz}$): <span id="iSelfText" class="badge badge-primary">0.00 A</span><br>
+      • Öz-İndüksiyon Yönü: <b id="selfDirText" style="color:#aaa">Akım Yok</b>
+    </div>
+    <div class="info-box ind">
+      <b>2. Devre (İndüksiyon Kutuplanması):</b><br>
+      • İndüksiyon Akımı ($i_{ind}$): <span id="iIndText" class="badge badge-ind">0.00 A</span><br>
+      • Oluşan İndüksiyon Kutupları: <b id="poleText" style="color:#ffeb3b">Akım Yok (Kutup Yok)</b><br>
+      • Tepki Alanı ($\vec{B}_{\text{ind}}$): <span id="bDirText" style="color:#fff">Yön Yok</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById("simCanvas");
+const ctx = canvas.getContext("2d");
+
+let V = 12, R = 10, N1 = 10, N2 = 10, dist = 100;
+let I_main = V / R;
+
+let lastV = V, lastR = R, lastN1 = N1, lastN2 = N2, lastDist = dist;
+
+let dI_dt = 0, dN1_dt = 0, dN2_dt = 0, dDist_dt = 0;
+let i_self = 0, i_ind = 0;
+
+function onVoltageChange() {
+  const newV = parseFloat(document.getElementById("voltage").value);
+  dI_dt = ((newV / R) - (lastV / R)) * 8;
+  lastV = newV; updateParams();
+}
+
+function onRheostatChange() {
+  const newR = parseFloat(document.getElementById("rheostat").value);
+  dI_dt = ((V / newR) - (V / lastR)) * 8;
+  lastR = newR; updateParams();
+}
+
+function onTurns1Change() {
+  const newN1 = parseInt(document.getElementById("turns1").value);
+  dN1_dt = (newN1 - lastN1) * 2.5;
+  lastN1 = newN1; updateParams();
+}
+
+function onTurns2Change() {
+  const newN2 = parseInt(document.getElementById("turns2").value);
+  dN2_dt = (newN2 - lastN2) * 2.5;
+  lastN2 = newN2; updateParams();
+}
+
+function onDistanceChange() {
+  const newDist = parseInt(document.getElementById("distance").value);
+  dDist_dt = (newDist - lastDist) * 3;
+  lastDist = newDist; updateParams();
+}
+
+function updateParams() {
+  V = parseFloat(document.getElementById("voltage").value);
+  R = parseFloat(document.getElementById("rheostat").value);
+  N1 = parseInt(document.getElementById("turns1").value);
+  N2 = parseInt(document.getElementById("turns2").value);
+  dist = parseInt(document.getElementById("distance").value);
+
+  document.getElementById("vVal").innerText = V + " V";
+  document.getElementById("rVal").innerText = R + " Ω";
+  document.getElementById("n1Val").innerText = N1;
+  document.getElementById("n2Val").innerText = N2;
+  document.getElementById("dVal").innerText = dist + " px";
+
+  I_main = V > 0 ? V / R : 0;
+}
+
+function drawCoil(centerX, y, radius, turns, color) {
+  const width = turns * 10;
+  const startX = centerX - width / 2;
+
+  // Çekirdek
+  ctx.strokeStyle = "#444";
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  ctx.moveTo(startX - 10, y);
+  ctx.lineTo(startX + width + 10, y);
+  ctx.stroke();
+
+  // Sarımlar
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  for (let i = 0; i < turns; i++) {
+    const x = startX + i * 10;
+    ctx.ellipse(x, y, 5, radius, 0, 0, Math.PI * 2);
+  }
+  ctx.stroke();
+
+  return { startX: startX - 10, endX: startX + width + 10, width: width + 20 };
+}
+
+function drawArrow(x, y, length, direction, color, label) {
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3;
+
+  const endY = y + (direction === 'down' ? length : -length);
+
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x, endY);
+  ctx.stroke();
+
+  ctx.beginPath();
+  if (direction === 'up') {
+    ctx.moveTo(x, endY); ctx.lineTo(x - 5, endY + 8); ctx.lineTo(x + 5, endY + 8);
+  } else {
+    ctx.moveTo(x, endY); ctx.lineTo(x - 5, endY - 8); ctx.lineTo(x + 5, endY - 8);
+  }
+  ctx.fill();
+
+  if (label) {
+    ctx.font = "bold 11px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(label, x, direction === 'up' ? endY - 6 : endY + 15);
+  }
+}
+
+function drawHorizontalArrow(x1, x2, y, color, label) {
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 4;
+
+  ctx.beginPath();
+  ctx.moveTo(x1, y);
+  ctx.lineTo(x2, y);
+  ctx.stroke();
+
+  const dir = x2 > x1 ? 1 : -1;
+  ctx.beginPath();
+  ctx.moveTo(x2, y);
+  ctx.lineTo(x2 - dir * 10, y - 6);
+  ctx.lineTo(x2 - dir * 10, y + 6);
+  ctx.fill();
+
+  if (label) {
+    ctx.font = "bold 13px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(label, (x1 + x2) / 2, y - 10);
+  }
+}
+
+function drawPoleBadge(x, y, text, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(x, y, 14, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold 14px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, x, y);
+}
+
+function drawGalvanometer(x, y, current) {
+  ctx.fillStyle = "#222";
+  ctx.beginPath(); ctx.arc(x, y, 22, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+
+  ctx.fillStyle = "#fff"; ctx.font = "bold 11px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+  ctx.fillText("G", x, y - 8);
+
+  const angle = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, current * 0.5));
+  ctx.strokeStyle = "#ff1744";
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(x, y + 8);
+  ctx.lineTo(x + Math.sin(angle) * 18, y + 8 - Math.cos(angle) * 18);
+  ctx.stroke();
+}
+
+function loop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  dI_dt *= 0.85; dN1_dt *= 0.85; dN2_dt *= 0.85; dDist_dt *= 0.85;
+
+  // Öz-indüksiyon hesaplama
+  const totalSelfTrigger = dI_dt * N1 + dN1_dt * I_main;
+  i_self = - totalSelfTrigger * 0.12;
+
+  // İndüksiyon hesaplama
+  const totalDPhi = (dI_dt * N1 * N2 / 100) + (dN1_dt * I_main * N2 / 10) + (dN2_dt * I_main * N1 / 10) - (dDist_dt * I_main * N1 * N2 / 2000);
+  i_ind = - totalDPhi * 0.15;
+
+  // Bilgi Paneli Metin Güncellemeleri
+  document.getElementById("i1Text").innerText = `${I_main.toFixed(2)} A`;
+
+  const iSelfElem = document.getElementById("iSelfText");
+  const selfDirElem = document.getElementById("selfDirText");
+
+  if (Math.abs(i_self) > 0.03) {
+    if (i_self < 0) { // Akım Artıyor -> Öz-indüksiyon Zıt Yönde (Aşağı)
+      iSelfElem.className = "badge badge-self-opp";
+      iSelfElem.innerText = `${Math.abs(i_self).toFixed(2)} A`;
+      selfDirElem.innerText = "ZIT YÖN (Ana Akımı Engelliyor ↓)";
+      selfDirElem.style.color = "#ff1744";
+    } else { // Akım Azalıyor -> Öz-indüksiyon Aynı Yönde (Yukarı)
+      iSelfElem.className = "badge badge-self-supp";
+      iSelfElem.innerText = `${Math.abs(i_self).toFixed(2)} A`;
+      selfDirElem.innerText = "AYNI YÖN (Ana Akımı Destekliyor ↑)";
+      selfDirElem.style.color = "#00e676";
+    }
+  } else {
+    iSelfElem.className = "badge badge-primary";
+    iSelfElem.innerText = "0.00 A";
+    selfDirElem.innerText = "Değişim Yok";
+    selfDirElem.style.color = "#aaa";
+  }
+
+  const poleTextElem = document.getElementById("poleText");
+  const bDirElem = document.getElementById("bDirText");
+
+  if (Math.abs(i_ind) > 0.03) {
+    if (i_ind < 0) {
+      poleTextElem.innerText = "Sol: N Kutbu | Sağ: S Kutbu";
+      poleTextElem.style.color = "#00e676";
+      bDirElem.innerText = "Sola Doğru (← B_ind)";
+      bDirElem.style.color = "#00e676";
+    } else {
+      poleTextElem.innerText = "Sol: S Kutbu | Sağ: N Kutbu";
+      poleTextElem.style.color = "#ff1744";
+      bDirElem.innerText = "Sağa Doğru (B_ind →)";
+      bDirElem.style.color = "#ff1744";
+    }
+  } else {
+    poleTextElem.innerText = "Akım Yok (Durgun)";
+    poleTextElem.style.color = "#aaa";
+    bDirElem.innerText = "Yön Yok";
+    bDirElem.style.color = "#aaa";
+  }
+
+  document.getElementById("iIndText").innerText = `${Math.abs(i_ind).toFixed(2)} A`;
+
+  // --- 1. DEVRE VE ÖZ-İNDÜKSİYON ÇİZİMİ ---
+  const c1X = 220; const c1Y = 170;
+  const coil1Bound = drawCoil(c1X, c1Y, 35, N1, "#00e676");
+
+  if (I_main > 0) {
+    drawPoleBadge(coil1Bound.startX - 20, c1Y, "S", "#ff1744");
+    drawPoleBadge(coil1Bound.endX + 20, c1Y, "N", "#0288d1");
+  }
+
+  ctx.strokeStyle = "#555"; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(c1X - (N1 * 5), c1Y); ctx.lineTo(80, c1Y); ctx.lineTo(80, 310); ctx.lineTo(180, 310);
+  ctx.moveTo(260, 310); ctx.lineTo(360, 310); ctx.lineTo(360, c1Y); ctx.lineTo(c1X + (N1 * 5), c1Y);
+  ctx.stroke();
+
+  // Pil ve Reosta
+  ctx.fillStyle = "#fff"; ctx.fillRect(300, 295, 12, 30);
+  ctx.fillStyle = "#ff1744"; ctx.font = "bold 14px Arial"; ctx.fillText("+", 290, 315);
+  ctx.fillStyle = "#444"; ctx.fillRect(180, 302, 80, 16);
+  ctx.fillStyle = "#00e676"; ctx.fillRect(180 + (R/50)*80, 295, 6, 30);
+
+  // Ana Akım Oku (Sabit Yukarı Yönlü)
+  if (I_main > 0) drawArrow(80, 230, 35, 'up', '#0288d1', 'Ana Akım (I)');
+
+  // ÖZ-İNDÜKSİYON AKIM OKU (Dinamik Yönlü)
+  if (Math.abs(i_self) > 0.03) {
+    const isOpposite = i_self < 0;
+    const dir = isOpposite ? 'down' : 'up';
+    const color = isOpposite ? '#ff1744' : '#00e676';
+    drawArrow(115, 230, 35, dir, color, isOpposite ? 'i_öz (Zıt ↓)' : 'i_öz (Aynı ↑)');
+  }
+
+  // --- 2. SARI BOBİN VE İNDÜKSİYON ÇİZİMİ ---
+  const c2X = c1X + (N1 * 5) + dist + (N2 * 5);
+  const c2Y = 170;
+  const coil2Bound = drawCoil(c2X, c2Y, 35, N2, "#ffeb3b");
+
+  ctx.strokeStyle = "#555";
+  ctx.beginPath();
+  ctx.moveTo(c2X - (N2 * 5), c2Y); ctx.lineTo(c2X - (N2 * 5), 310);
+  ctx.lineTo(c2X + (N2 * 5), 310); ctx.lineTo(c2X + (N2 * 5), c2Y);
+  ctx.stroke();
+
+  drawGalvanometer(c2X, 310, -i_ind * 8);
+
+  // İndüksiyon Akımı ve Kutupları
+  if (Math.abs(i_ind) > 0.03) {
+    const isUp = i_ind < 0;
+    const dir = isUp ? 'up' : 'down';
+    drawArrow(c2X - (N2 * 5) - 25, 230, 35, dir, '#fbc02d', isUp ? 'i_ind (Yukarı)' : 'i_ind (Aşağı)');
+
+    if (isUp) {
+      drawPoleBadge(coil2Bound.startX - 20, c2Y, "N", "#0288d1");
+      drawPoleBadge(coil2Bound.endX + 20, c2Y, "S", "#ff1744");
+      drawHorizontalArrow(coil2Bound.endX - 10, coil2Bound.startX - 30, c2Y - 55, "#00e676", "B_ind (Tepki)");
+    } else {
+      drawPoleBadge(coil2Bound.startX - 20, c2Y, "S", "#ff1744");
+      drawPoleBadge(coil2Bound.endX + 20, c2Y, "N", "#0288d1");
+      drawHorizontalArrow(coil2Bound.startX + 10, coil2Bound.endX + 30, c2Y - 55, "#ff1744", "B_ind (Tepki)");
+    }
+  }
+
+  requestAnimationFrame(loop);
+}
+
+updateParams();
+loop();
+</script>
+
+</body>
+</html>
