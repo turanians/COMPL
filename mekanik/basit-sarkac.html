@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Sarkaç & Enerji Simülasyonu</title>
+  <style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background: #121212; color: #fff; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+    h1 { margin-top: 0; font-size: 1.5rem; text-align: center; }
+    
+    .container { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; max-width: 1200px; width: 100%; }
+    .panel { background: #1e1e1e; border-radius: 8px; padding: 15px; border: 1px solid #333; }
+    
+    canvas { background: #181818; border-radius: 4px; display: block; }
+    
+    .info-panel { flex: 1; min-width: 250px; font-family: monospace; font-size: 0.95rem; line-height: 1.6; }
+    .info-panel h3 { color: #4da6ff; margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 5px; }
+    
+    .controls { width: 100%; max-width: 1200px; margin-top: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; background: #1e1e1e; padding: 20px; border-radius: 8px; }
+    .control-group { display: flex; flex-direction: column; gap: 5px; }
+    .control-group label { font-size: 0.85rem; color: #aaa; }
+    input[type="range"] { width: 100%; accent-color: #007acc; }
+    
+    button { grid-column: 1 / -1; padding: 10px; background: #007acc; color: white; border: none; border-radius: 4px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    button:hover { background: #005999; }
+  </style>
+</head>
+<body>
+
+  <h1>Sarkaç Hareket & Enerji Dönüşüm Simülasyonu</h1>
+
+  <div class="container">
+    <!-- 1. Sarkaç Çizim Alanı -->
+    <div class="panel">
+      <canvas id="pendulumCanvas" width="400" height="350"></canvas>
+    </div>
+
+    <!-- 2. Enerji Grafiği -->
+    <div class="panel">
+      <canvas id="energyCanvas" width="400" height="350"></canvas>
+    </div>
+
+    <!-- 3. Formül ve Veri Paneli -->
+    <div class="panel info-panel" id="infoPanel">
+      <h3>FORMÜLLER & DEĞERLER</h3>
+      <div id="stats">Yükleniyor...</div>
+    </div>
+  </div>
+
+  <!-- Kaydırıcılar (Sliders) -->
+  <div class="controls">
+    <div class="control-group">
+      <label>İp Uzunluğu (L): <span id="val_L">2.0</span> m</label>
+      <input type="range" id="slider_L" min="0.5" max="5.0" step="0.1" value="2.0">
+    </div>
+    
+    <div class="control-group">
+      <label>Yerçekimi (g): <span id="val_g">9.81</span> m/s²</label>
+      <input type="range" id="slider_g" min="1.6" max="25.0" step="0.1" value="9.81">
+    </div>
+
+    <div class="control-group">
+      <label>Kütle (m): <span id="val_m">1.0</span> kg</label>
+      <input type="range" id="slider_m" min="0.1" max="5.0" step="0.1" value="1.0">
+    </div>
+
+    <div class="control-group">
+      <label>Genlik (&theta;): <span id="val_theta">0.79</span> rad</label>
+      <input type="range" id="slider_theta" min="0.1" max="1.5" step="0.05" value="0.785">
+    </div>
+
+    <div class="control-group">
+      <label>Animasyon Hızı: <span id="val_speed">0.05</span></label>
+      <input type="range" id="slider_speed" min="0.005" max="0.1" step="0.005" value="0.05">
+    </div>
+
+    <button id="btnPause">Durdur / Başlat</button>
+  </div>
+
+  <script>
+    // Canvas Kurulumları
+    const pendCanvas = document.getElementById('pendulumCanvas');
+    const pendCtx = pendCanvas.getContext('2d');
+
+    const energyCanvas = document.getElementById('energyCanvas');
+    const energyCtx = energyCanvas.getContext('2d');
+
+    // DOM Elemanları
+    const s_L = document.getElementById('slider_L');
+    const s_g = document.getElementById('slider_g');
+    const s_m = document.getElementById('slider_m');
+    const s_theta = document.getElementById('slider_theta');
+    const s_speed = document.getElementById('slider_speed');
+    const btnPause = document.getElementById('btnPause');
+    const statsDiv = document.getElementById('stats');
+
+    // Simülasyon Değişkenleri
+    let t = 0;
+    let running = true;
+    const maxPoints = 100;
+    const ekData = new Array(maxPoints).fill(0);
+    const epData = new Array(maxPoints).fill(0);
+
+    // Slider Güncellemelerini Dinle
+    function bindSlider(slider, valSpan) {
+      slider.addEventListener('input', () => {
+        valSpan.textContent = parseFloat(slider.value).toFixed(2);
+      });
+    }
+    bindSlider(s_L, document.getElementById('val_L'));
+    bindSlider(s_g, document.getElementById('val_g'));
+    bindSlider(s_m, document.getElementById('val_m'));
+    bindSlider(s_theta, document.getElementById('val_theta'));
+    bindSlider(s_speed, document.getElementById('val_speed'));
+
+    btnPause.addEventListener('click', () => {
+      running = !running;
+    });
+
+    // Ana Döngü (Main Loop)
+    function animate() {
+      if (running) {
+        const L = parseFloat(s_L.value);
+        const g = parseFloat(s_g.value);
+        const m = parseFloat(s_m.value);
+        const theta_max = parseFloat(s_theta.value);
+        const dt = parseFloat(s_speed.value);
+
+        // Fizik Hesaplamaları
+        const omega = Math.sqrt(g / L);
+        const theta = theta_max * Math.cos(omega * t);
+
+        // Konum (Ekran Ölçeklendirmesi ile)
+        const scale = 50; // Metreyi piksele çevirme ölçeği
+        const originX = pendCanvas.width / 2;
+        const originY = 50;
+        
+        const x = originX + (L * Math.sin(theta)) * scale;
+        const y = originY + (L * Math.cos(theta)) * scale;
+        const shadowY = 300; // Zemin gölge hizası
+
+        // Enerjiler
+        const ep = m * g * L * (1 - Math.cos(theta));
+        const e_tot = m * g * L * (1 - Math.cos(theta_max));
+        const ek = Math.max(0, e_tot - ep);
+
+        // Veri Dizilerini Güncelle
+        ekData.shift(); ekData.push(ek);
+        epData.shift(); epData.push(ep);
+
+        // --- 1. SARKAÇ ÇİZİMİ ---
+        pendCtx.clearRect(0, 0, pendCanvas.width, pendCanvas.height);
+
+        // Zemin Çizgisi
+        pendCtx.beginPath();
+        pendCtx.moveTo(20, shadowY);
+        pendCtx.lineTo(pendCanvas.width - 20, shadowY);
+        pendCtx.strokeStyle = '#555';
+        pendCtx.lineWidth = 3;
+        pendCtx.stroke();
+
+        // Gölge (Aşağıdaki Kırmızı Soluk Daire)
+        pendCtx.beginPath();
+        pendCtx.arc(x, shadowY, 12, 0, Math.PI * 2);
+        pendCtx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+        pendCtx.fill();
+
+        // İp
+        pendCtx.beginPath();
+        pendCtx.moveTo(originX, originY);
+        pendCtx.lineTo(x, y);
+        pendCtx.strokeStyle = '#fff';
+        pendCtx.lineWidth = 2;
+        pendCtx.stroke();
+
+        // Sarkaç Topu
+        pendCtx.beginPath();
+        pendCtx.arc(x, y, 12, 0, Math.PI * 2);
+        pendCtx.fillStyle = '#ff4d4d';
+        pendCtx.fill();
+
+        // Pivot Noktası
+        pendCtx.beginPath();
+        pendCtx.arc(originX, originY, 4, 0, Math.PI * 2);
+        pendCtx.fillStyle = '#aaa';
+        pendCtx.fill();
+
+        // --- 2. ENERJİ GRAFİĞİ ÇİZİMİ ---
+        energyCtx.clearRect(0, 0, energyCanvas.width, energyCanvas.height);
+
+        // Çerçeve/Izgara
+        energyCtx.strokeStyle = '#333';
+        energyCtx.lineWidth = 1;
+        energyCtx.strokeRect(40, 20, 340, 280);
+
+        // Maksimum Enerjiye Göre Dinamik Y Ölçeği
+        const maxY = Math.max(e_tot * 1.2, 10);
+
+        // Grafik Çizici Fonksiyon
+        function drawLine(data, color) {
+          energyCtx.beginPath();
+          energyCtx.strokeStyle = color;
+          energyCtx.lineWidth = 2;
+
+          for (let i = 0; i < data.length; i++) {
+            const px = 40 + (i / (maxPoints - 1)) * 340;
+            const py = 300 - (data[i] / maxY) * 280;
+            if (i === 0) energyCtx.moveTo(px, py);
+            else energyCtx.lineTo(px, py);
+          }
+          energyCtx.stroke();
+        }
+
+        drawLine(ekData, '#00a8ff'); // Kinetik Enerji (Mavi)
+        drawLine(epData, '#4cd137'); // Potansiyel Enerji (Yeşil)
+
+        // Legend (Açıklama)
+        energyCtx.fillStyle = '#00a8ff';
+        energyCtx.fillText('— Kinetik Enerji (Ek)', 50, 40);
+        energyCtx.fillStyle = '#4cd137';
+        energyCtx.fillText('— Potansiyel Enerji (Ep)', 50, 55);
+
+        // --- 3. METİN / FORMÜL PANELİ ---
+        const T = 2 * Math.PI * Math.sqrt(L / g);
+        statsDiv.innerHTML = `
+          <b>Periyot Formülü:</b><br>
+          T = 2&pi;&radic;(L / g)<br><br>
+          <b>Değişkenler:</b><br>
+          L = ${L.toFixed(2)} m<br>
+          g = ${g.toFixed(2)} m/s²<br>
+          m = ${m.toFixed(2)} kg<br>
+          Genlik = ${theta_max.toFixed(2)} rad<br><br>
+          <b>Sonuçlar:</b><br>
+          Periyot (T) = <b>${T.toFixed(3)} s</b><br>
+          Ek = <span style="color:#00a8ff">${ek.toFixed(2)} J</span><br>
+          Ep = <span style="color:#4cd137">${ep.toFixed(2)} J</span>
+        `;
+
+        t += dt;
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    // Animasyonu Başlat
+    animate();
+  </script>
+
+</body>
+</html>

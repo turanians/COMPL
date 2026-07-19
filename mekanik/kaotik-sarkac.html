@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Çift Sarkaç & Kaos Teorisi Simülasyonu</title>
+  <style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background: #0a0a10; color: #fff; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+    h1 { margin: 0 0 5px 0; font-size: 1.6rem; color: #64ffda; text-align: center; }
+    p.subtitle { margin: 0 0 20px 0; color: #8892b0; font-size: 0.9rem; text-align: center; }
+
+    .main-container { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; max-width: 1100px; width: 100%; }
+    
+    .canvas-container { position: relative; background: #11121d; border-radius: 12px; border: 1px solid #232741; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    canvas { display: block; border-radius: 12px; }
+
+    .controls { flex: 1; min-width: 280px; background: #11121d; padding: 20px; border-radius: 12px; border: 1px solid #232741; display: flex; flex-direction: column; gap: 15px; }
+    .control-group { display: flex; flex-direction: column; gap: 6px; }
+    .control-group label { font-size: 0.85rem; color: #a8b2d1; display: flex; justify-content: space-between; }
+    .control-group span { color: #64ffda; font-family: monospace; }
+    
+    input[type="range"] { width: 100%; accent-color: #64ffda; background: #232741; border-radius: 4px; height: 6px; }
+    
+    .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    button { padding: 10px 15px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 0.9rem; }
+    .btn-primary { background: #64ffda; color: #0a0a10; }
+    .btn-primary:hover { background: #4cdbba; }
+    .btn-secondary { background: #232741; color: #ccd6f6; border: 1px solid #3b4268; }
+    .btn-secondary:hover { background: #2e3456; }
+
+    .info-box { background: #181a29; border-left: 3px solid #64ffda; padding: 10px 12px; font-size: 0.8rem; color: #8892b0; line-height: 1.4; border-radius: 0 6px 6px 0; }
+  </style>
+</head>
+<body>
+
+  <h1>Çift Sarkaç & Kaos Simülasyonu</h1>
+  <p class="subtitle">İkinci sarkacın çizdiği iz, deterministik kaosun hassas dengesini gösterir.</p>
+
+  <div class="main-container">
+    <div class="canvas-container">
+      <canvas id="simCanvas" width="600" height="600"></canvas>
+    </div>
+
+    <div class="controls">
+      <div class="control-group">
+        <label>Üst İp Uzunluğu (r1): <span id="v_r1">120</span> px</label>
+        <input type="range" id="s_r1" min="50" max="200" value="120">
+      </div>
+
+      <div class="control-group">
+        <label>Alt İp Uzunluğu (r2): <span id="v_r2">120</span> px</label>
+        <input type="range" id="s_r2" min="50" max="200" value="120">
+      </div>
+
+      <div class="control-group">
+        <label>Üst Kütle (m1): <span id="v_m1">20</span> kg</label>
+        <input type="range" id="s_m1" min="5" max="50" value="20">
+      </div>
+
+      <div class="control-group">
+        <label>Alt Kütle (m2): <span id="v_m2">20</span> kg</label>
+        <input type="range" id="s_m2" min="5" max="50" value="20">
+      </div>
+
+      <div class="control-group">
+        <label>Yerçekimi (g): <span id="v_g">1.0</span></label>
+        <input type="range" id="s_g" min="0.1" max="3.0" step="0.1" value="1.0">
+      </div>
+
+      <div class="control-group">
+        <label>İz Uzunluğu: <span id="v_trail">1000</span> kare</label>
+        <input type="range" id="s_trail" min="100" max="3000" step="100" value="1000">
+      </div>
+
+      <div class="btn-group">
+        <button class="btn-primary" id="btnPause">Durdur / Başlat</button>
+        <button class="btn-secondary" id="btnReset">Sıfırla & Temizle</button>
+      </div>
+
+      <div class="info-box">
+        💡 <b>Kaos İpucu:</b> Başlangıç açılarını değiştirmek veya hafifçe kütlelerle oynamak, sarkacın çizdiği rotayı tamamen değiştirir.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Tuval arka plan resmi (İzleri kalıcı kılmak için ara canvas kullanıyoruz)
+    const traceCanvas = document.createElement('canvas');
+    traceCanvas.width = canvas.width;
+    traceCanvas.height = canvas.height;
+    const traceCtx = traceCanvas.getContext('2d');
+
+    // Fiziksel Durum (State Variables)
+    let a1 = Math.PI / 2; // İlk açılar (90 derece)
+    let a2 = Math.PI / 2;
+    let a1_v = 0;         // Açısal hızlar
+    let a2_v = 0;
+
+    let running = true;
+    let history = [];     // İz noktalarının koordinatları ve renkleri
+
+    // DOM Kontrolleri
+    const s_r1 = document.getElementById('s_r1'), v_r1 = document.getElementById('v_r1');
+    const s_r2 = document.getElementById('s_r2'), v_r2 = document.getElementById('v_r2');
+    const s_m1 = document.getElementById('s_m1'), v_m1 = document.getElementById('v_m1');
+    const s_m2 = document.getElementById('s_m2'), v_m2 = document.getElementById('v_m2');
+    const s_g  = document.getElementById('s_g'),  v_g  = document.getElementById('v_g');
+    const s_trail = document.getElementById('s_trail'), v_trail = document.getElementById('v_trail');
+    const btnPause = document.getElementById('btnPause');
+    const btnReset = document.getElementById('btnReset');
+
+    function syncLabels() {
+      v_r1.textContent = s_r1.value;
+      v_r2.textContent = s_r2.value;
+      v_m1.textContent = s_m1.value;
+      v_m2.textContent = s_m2.value;
+      v_g.textContent  = parseFloat(s_g.value).toFixed(1);
+      v_trail.textContent = s_trail.value;
+    }
+
+    [s_r1, s_r2, s_m1, s_m2, s_g, s_trail].forEach(input => {
+      input.addEventListener('input', syncLabels);
+    });
+
+    btnPause.addEventListener('click', () => running = !running);
+    btnReset.addEventListener('click', resetSimulation);
+
+    function resetSimulation() {
+      a1 = Math.PI / 2;
+      a2 = Math.PI / 2;
+      a1_v = 0;
+      a2_v = 0;
+      history = [];
+      traceCtx.clearRect(0, 0, traceCanvas.width, traceCanvas.height);
+    }
+
+    // Lagrange Hareket Denklemleri (Açısal İvmeleri Hesaplar)
+    function getAngularAccelerations(th1, th2, w1, w2) {
+      const r1 = parseFloat(s_r1.value);
+      const r2 = parseFloat(s_r2.value);
+      const m1 = parseFloat(s_m1.value);
+      const m2 = parseFloat(s_m2.value);
+      const g  = parseFloat(s_g.value);
+
+      // 1. Açısal İvme (alpha1)
+      let num1 = -g * (2 * m1 + m2) * Math.sin(th1) - m2 * g * Math.sin(th1 - 2 * th2);
+      let num2 = -2 * Math.sin(th1 - th2) * m2 * (w2 * w2 * r2 + w1 * w1 * r1 * Math.cos(th1 - th2));
+      let den1 = r1 * (2 * m1 + m2 - m2 * Math.cos(2 * th1 - 2 * th2));
+      let alpha1 = (num1 + num2) / den1;
+
+      // 2. Açısal İvme (alpha2)
+      let num3 = 2 * Math.sin(th1 - th2) * (w1 * w1 * r1 * (m1 + m2) + g * (m1 + m2) * Math.cos(th1) + w2 * w2 * r2 * m2 * Math.cos(th1 - th2));
+      let den2 = r2 * (2 * m1 + m2 - m2 * Math.cos(2 * th1 - 2 * th2));
+      let alpha2 = num3 / den2;
+
+      return [alpha1, alpha2];
+    }
+
+    // RK4 (Runge-Kutta 4. Derece) Entegrasyonu
+    function stepRK4(dt) {
+      // k1
+      const [a1_a_k1, a2_a_k1] = getAngularAccelerations(a1, a2, a1_v, a2_v);
+
+      // k2
+      const a1_k2 = a1 + 0.5 * dt * a1_v;
+      const a2_k2 = a2 + 0.5 * dt * a2_v;
+      const a1_v_k2 = a1_v + 0.5 * dt * a1_a_k1;
+      const a2_v_k2 = a2_v + 0.5 * dt * a2_a_k1;
+      const [a1_a_k2, a2_a_k2] = getAngularAccelerations(a1_k2, a2_k2, a1_v_k2, a2_v_k2);
+
+      // k3
+      const a1_k3 = a1 + 0.5 * dt * a1_v_k2;
+      const a2_k3 = a2 + 0.5 * dt * a2_v_k2;
+      const a1_v_k3 = a1_v + 0.5 * dt * a1_a_k2;
+      const a2_v_k3 = a2_v + 0.5 * dt * a2_a_k2;
+      const [a1_a_k3, a2_a_k3] = getAngularAccelerations(a1_k3, a2_k3, a1_v_k3, a2_v_k3);
+
+      // k4
+      const a1_k4 = a1 + dt * a1_v_k3;
+      const a2_k4 = a2 + dt * a2_v_k3;
+      const a1_v_k4 = a1_v + dt * a1_a_k3;
+      const a2_v_k4 = a2_v + dt * a2_a_k3;
+      const [a1_a_k4, a2_a_k4] = getAngularAccelerations(a1_k4, a2_k4, a1_v_k4, a2_v_k4);
+
+      // Güncelleme
+      a1 += dt * (a1_v + (dt / 6) * (a1_a_k1 + a1_a_k2 + a1_a_k3));
+      a2 += dt * (a2_v + (dt / 6) * (a2_a_k1 + a2_a_k2 + a2_a_k3));
+
+      a1_v += (dt / 6) * (a1_a_k1 + 2 * a1_a_k2 + 2 * a1_a_k3 + a1_a_k4);
+      a2_v += (dt / 6) * (a2_a_k1 + 2 * a2_a_k2 + 2 * a2_a_k3 + a2_a_k4);
+    }
+
+    let hue = 0; // İzin rengi için gökkuşağı döngüsü
+
+    function update() {
+      if (running) {
+        // Alt adımlarla fizik hassasiyetini artırma
+        const subSteps = 5;
+        const dt = 0.2 / subSteps;
+        for (let i = 0; i < subSteps; i++) {
+          stepRK4(dt);
+        }
+
+        const r1 = parseFloat(s_r1.value);
+        const r2 = parseFloat(s_r2.value);
+        const cx = canvas.width / 2;
+        const cy = 220;
+
+        const x1 = cx + r1 * Math.sin(a1);
+        const y1 = cy + r1 * Math.cos(a1);
+
+        const x2 = x1 + r2 * Math.sin(a2);
+        const y2 = y1 + r2 * Math.cos(a2);
+
+        // İz Verisine Ekle
+        hue = (hue + 0.5) % 360;
+        history.push({ x: x2, y: y2, color: `hsl(${hue}, 100%, 60%)` });
+
+        // İzi Sınırla
+        const maxTrail = parseInt(s_trail.value);
+        if (history.length > maxTrail) {
+          history.shift();
+        }
+      }
+    }
+
+    function draw() {
+      // Ana tuvali temizle
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const r1 = parseFloat(s_r1.value);
+      const r2 = parseFloat(s_r2.value);
+      const m1 = parseFloat(s_m1.value);
+      const m2 = parseFloat(s_m2.value);
+
+      const cx = canvas.width / 2;
+      const cy = 220;
+
+      const x1 = cx + r1 * Math.sin(a1);
+      const y1 = cy + r1 * Math.cos(a1);
+
+      const x2 = x1 + r2 * Math.sin(a2);
+      const y2 = y1 + r2 * Math.cos(a2);
+
+      // 1. KAOTİK İZİ ÇİZ
+      if (history.length > 1) {
+        for (let i = 1; i < history.length; i++) {
+          ctx.beginPath();
+          ctx.moveTo(history[i - 1].x, history[i - 1].y);
+          ctx.lineTo(history[i].x, history[i].y);
+          ctx.strokeStyle = history[i].color;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
+      }
+
+      // 2. İPLERİ ÇİZ
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // 3. KÜTLELERİ (TOPLARI) ÇİZ
+      // Pivot Noktası
+      ctx.beginPath();
+      ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+      ctx.fillStyle = '#8892b0';
+      ctx.fill();
+
+      // Birinci Top
+      ctx.beginPath();
+      ctx.arc(x1, y1, Math.sqrt(m1) * 2, 0, Math.PI * 2);
+      ctx.fillStyle = '#64ffda';
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // İkinci Top (İzi Bırakan)
+      ctx.beginPath();
+      ctx.arc(x2, y2, Math.sqrt(m2) * 2, 0, Math.PI * 2);
+      ctx.fillStyle = '#ff5370';
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    syncLabels();
+    loop();
+  </script>
+</body>
+</html>
