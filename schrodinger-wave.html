@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schrödinger Dalga Paketi ve Kuantum Tünelleme Simülatörü</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #05070f;
+        }
+        .code-font {
+            font-family: 'Fira Code', monospace;
+        }
+        /* Custom scrollbar for control panel */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b0f19;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col justify-between p-3 md:p-6 overflow-x-hidden">
+
+    <!-- STEAMING_CHUNK: Rendering the upper header and quantum state indicator... -->
+    <!-- Üst Başlık ve Fiziksel Göstergeler -->
+    <header class="w-full max-w-7xl mx-auto text-center mb-4">
+        <div class="inline-flex items-center gap-3 bg-cyan-500/10 border border-cyan-500/20 px-4 py-1.5 rounded-full mb-2 backdrop-blur-md">
+            <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"></span>
+            <span class="text-xs font-semibold tracking-wider uppercase text-cyan-300">Zamana Bağlı Schrödinger Çözücü (TDSE)</span>
+        </div>
+        <h1 class="text-2xl md:text-4xl font-extrabold text-white tracking-tight">Kuantum Tünelleme & Dalga Paketi</h1>
+        <p class="text-xs md:text-sm text-slate-400 max-w-2xl mx-auto mt-1">
+            Enerji engelini aşacak gücü olmayan bir parçacık dalga paketi, potansiyel bariyerine çarptığında bariyerin arkasına "sızabilir".
+        </p>
+    </header>
+
+    <!-- STEAMING_CHUNK: Laying out the grid structure and panels... -->
+    <!-- Ana Panel -->
+    <main class="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch flex-1">
+        
+        <!-- Sol Kontrol Paneli -->
+        <div class="lg:col-span-4 bg-slate-900/80 border border-slate-800 p-5 rounded-2xl flex flex-col justify-between backdrop-blur-md">
+            <div class="space-y-5">
+                <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase pb-2 border-b border-slate-800/80">
+                    <i class="fa-solid fa-sliders text-cyan-400 mr-2"></i>Deney Parametreleri
+                </h2>
+
+                <!-- Hazır Senaryolar (Presets) -->
+                <div>
+                    <span class="text-[11px] text-slate-400 font-semibold uppercase tracking-wider block mb-2">Hazır Durumlar</span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="applyPreset('tunneling')" class="px-2.5 py-1.5 bg-cyan-950/40 hover:bg-cyan-900/40 border border-cyan-500/30 rounded-lg text-xs font-medium text-cyan-300 transition-all flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-person-through-window"></i> Tünelleme
+                        </button>
+                        <button onclick="applyPreset('reflection')" class="px-2.5 py-1.5 bg-emerald-950/40 hover:bg-emerald-900/40 border border-emerald-500/30 rounded-lg text-xs font-medium text-emerald-300 transition-all flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-shield-halved"></i> Tam Yansıma
+                        </button>
+                        <button onclick="applyPreset('double')" class="px-2.5 py-1.5 bg-fuchsia-950/40 hover:bg-fuchsia-900/40 border border-fuchsia-500/30 rounded-lg text-xs font-medium text-fuchsia-300 transition-all flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-grip-lines-vertical"></i> Çift Engel
+                        </button>
+                        <button onclick="applyPreset('well')" class="px-2.5 py-1.5 bg-amber-950/40 hover:bg-amber-900/40 border border-amber-500/30 rounded-lg text-xs font-medium text-amber-300 transition-all flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-down-left-and-up-right-to-center"></i> Potansiyel Kuyusu
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Dalga Paketi Sürgüleri -->
+                <div class="space-y-3 pt-2 border-t border-slate-800/60">
+                    <span class="text-[11px] text-slate-400 font-semibold uppercase tracking-wider block">Elektron Dalga Paketi</span>
+                    
+                    <!-- Momentum k0 -->
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-300">Başlangıç Momenti (<span class="italic font-semibold text-cyan-400">k₀</span>)</span>
+                            <span id="valK" class="text-cyan-400 font-bold bg-cyan-500/10 px-2 py-0.5 rounded">0.85</span>
+                        </div>
+                        <input id="sliderK" type="range" min="0.1" max="1.8" step="0.05" value="0.85" class="w-full accent-cyan-500 h-1 bg-slate-800 rounded-lg cursor-pointer">
+                        <p class="text-[10px] text-slate-500 mt-0.5">Parçacığın hızı ve momentumu. Yüksek değer daha kısa dalga boyu demektir.</p>
+                    </div>
+
+                    <!-- Genişlik sigma -->
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-300">Belirsizlik Genişliği (<span class="italic font-semibold text-fuchsia-400">σ</span>)</span>
+                            <span id="valSigma" class="text-fuchsia-400 font-bold bg-fuchsia-500/10 px-2 py-0.5 rounded">4.50</span>
+                        </div>
+                        <input id="sliderSigma" type="range" min="2.0" max="8.0" step="0.25" value="4.5" class="w-full accent-fuchsia-500 h-1 bg-slate-800 rounded-lg cursor-pointer">
+                        <p class="text-[10px] text-slate-500 mt-0.5">Dalganın uzaydaki yayılımı (Heisenberg belirsizliğiyle ters orantılıdır).</p>
+                    </div>
+                </div>
+
+                <!-- Potansiyel Bariyeri Sürgüleri -->
+                <div class="space-y-3 pt-2 border-t border-slate-800/60">
+                    <span class="text-[11px] text-slate-400 font-semibold uppercase tracking-wider block">Potansiyel Engeli / Duvarı</span>
+
+                    <!-- Engel Yüksekliği V0 -->
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-300">Engel Yüksekliği (<span class="italic font-semibold text-rose-400">V₀</span>)</span>
+                            <span id="valV0" class="text-rose-400 font-bold bg-rose-500/10 px-2 py-0.5 rounded">0.45</span>
+                        </div>
+                        <input id="sliderV0" type="range" min="-0.8" max="1.5" step="0.05" value="0.45" class="w-full accent-rose-500 h-1 bg-slate-800 rounded-lg cursor-pointer">
+                        <p class="text-[10px] text-slate-500 mt-0.5">Engelin enerji boyutu. Eksi değerler çekim kuyusu (kuyu) oluşturur.</p>
+                    </div>
+
+                    <!-- Engel Genişliği -->
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-300">Engel Genişliği (<span class="italic font-semibold text-rose-300">w</span>)</span>
+                            <span id="valW" class="text-rose-300 font-bold bg-rose-500/10 px-2 py-0.5 rounded">3.0</span>
+                        </div>
+                        <input id="sliderW" type="range" min="1.0" max="10.0" step="0.5" value="3.0" class="w-full accent-rose-400 h-1 bg-slate-800 rounded-lg cursor-pointer">
+                        <p class="text-[10px] text-slate-500 mt-0.5">Enerji bariyerinin fiziksel etki kalınlığı.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEAMING_CHUNK: Drawing simulator controls and simulation actions... -->
+            <!-- Simülatör Eylem Butonları -->
+            <div class="mt-5 pt-4 border-t border-slate-800/80 space-y-3">
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="btnPlay" class="py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl shadow-lg shadow-cyan-600/20 transition-all flex items-center justify-center gap-1.5 text-xs">
+                        <i class="fa-solid fa-play" id="playIcon"></i> <span id="playText">Durdur</span>
+                    </button>
+                    <button id="btnReset" class="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs">
+                        <i class="fa-solid fa-rotate-right"></i> Sıfırla (Fırlat)
+                    </button>
+                </div>
+
+                <!-- Schrödinger Denklem Kutusu -->
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80">
+                    <span class="text-[10px] text-slate-500 block mb-0.5">Çözülen Schrödinger Denklemi (TDSE):</span>
+                    <div class="code-font text-[11px] md:text-xs text-cyan-300 font-semibold text-center">
+                        iℏ ∂ψ/∂t = - (ℏ²/2m) ∂²ψ/∂x² + V(x)ψ
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Orta Panel: Ana Grafik Alanı (Canvas) -->
+        <div class="lg:col-span-5 bg-slate-950 border border-slate-800 rounded-2xl flex flex-col justify-between p-4 md:p-6 relative overflow-hidden backdrop-blur-md">
+            
+            <!-- Canlı İstatistik Göstergeleri (Kayan) -->
+            <div class="absolute top-4 left-4 right-4 flex justify-between gap-2 z-10 pointer-events-none">
+                <div class="bg-slate-900/90 border border-slate-800/80 backdrop-blur px-3 py-1.5 rounded-xl text-center shadow-lg">
+                    <span class="text-[9px] text-emerald-400 font-semibold block uppercase">Yansıma Olasılığı (R)</span>
+                    <span id="statRef" class="text-sm font-extrabold text-emerald-400 code-font">0.0%</span>
+                </div>
+                <div class="bg-slate-900/90 border border-slate-800/80 backdrop-blur px-3 py-1.5 rounded-xl text-center shadow-lg">
+                    <span class="text-[9px] text-rose-400 font-semibold block uppercase">Engelde Hapsolma</span>
+                    <span id="statBar" class="text-sm font-extrabold text-rose-400 code-font">0.0%</span>
+                </div>
+                <div class="bg-slate-900/90 border border-slate-800/80 backdrop-blur px-3 py-1.5 rounded-xl text-center shadow-lg">
+                    <span class="text-[9px] text-cyan-400 font-semibold block uppercase">Tünelleme Olasılığı (T)</span>
+                    <span id="statTrans" class="text-sm font-extrabold text-cyan-400 code-font">0.0%</span>
+                </div>
+            </div>
+
+            <!-- STEAMING_CHUNK: Setting up the Canvas viewport layout... -->
+            <!-- Canvas Kutusu -->
+            <div class="relative w-full aspect-[4/3] flex items-center justify-center bg-[#03050a] border border-slate-900 rounded-xl overflow-hidden mt-12">
+                <canvas id="schrodingerCanvas" class="w-full h-full block cursor-ew-resize"></canvas>
+                
+                <!-- Grafik Kılavuz Açıklamaları -->
+                <div class="absolute bottom-3 left-3 right-3 flex justify-center gap-4 text-[9px] text-slate-500 bg-slate-950/80 backdrop-blur border border-slate-900/60 py-1.5 px-3 rounded-lg pointer-events-none">
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-2.5 h-0.5 bg-cyan-500 inline-block"></span>
+                        <span>Olasılık Yoğunluğu (|ψ|²)</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-2.5 h-0.5 border-t border-dashed border-emerald-400 inline-block"></span>
+                        <span>Re(ψ) [Faz Dalgalanması]</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-2 h-2 bg-rose-500/25 border border-rose-500/50 rounded inline-block"></span>
+                        <span>Enerji Bariyeri V(x)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- İnteraktif Kılavuz -->
+            <div class="text-[10px] text-slate-500 text-center mt-3 leading-relaxed">
+                <i class="fa-solid fa-circle-info mr-1 text-cyan-400"></i>
+                Bariyerin konumunu değiştirmek için grafikte dilediğin yere **tıkla** veya sürükle.
+            </div>
+        </div>
+
+        <!-- STEAMING_CHUNK: Rendering the right explanatory and quantum analysis panel... -->
+        <!-- Sağ Panel: Kuantum Fiziği & Analiz -->
+        <div class="lg:col-span-3 bg-slate-900/70 border border-slate-800 p-6 rounded-2xl flex flex-col justify-between backdrop-blur-md">
+            <div class="space-y-4">
+                <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase pb-2 border-b border-slate-800/80">
+                    <i class="fa-solid fa-wave-square text-fuchsia-400 mr-2"></i>Kuantum Fizik Analizi
+                </h2>
+
+                <!-- Kuantum Durum Bilgisi -->
+                <div class="bg-slate-950/80 p-3 rounded-xl border border-slate-800/40 space-y-2">
+                    <span class="text-[10px] text-slate-500 block">Dalga Karakteristiği</span>
+                    <div class="text-xs space-y-1.5">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Parçacık Enerjisi (E):</span>
+                            <span id="infoE" class="text-cyan-300 font-semibold code-font">0.36 eV</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Bariyer Enerjisi (V₀):</span>
+                            <span id="infoV0" class="text-rose-300 font-semibold code-font">0.45 eV</span>
+                        </div>
+                        <div class="flex justify-between border-t border-slate-900 pt-1.5 mt-1.5">
+                            <span class="text-slate-400">Durum:</span>
+                            <span id="infoStatus" class="text-rose-400 font-bold uppercase tracking-wider text-[10px] bg-rose-500/10 px-2 py-0.5 rounded">Tünelleme Rejimi (E &lt; V₀)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detaylı Fiziksel Açıklama -->
+                <div class="space-y-3 text-xs leading-relaxed text-slate-400">
+                    <p>
+                        <b class="text-slate-200">Krank-Nicolson Algoritması:</b> Simülasyon, zaman adımlarında kararlı kalabilmek için matematiksel olarak tamamen korunumlu (unitary) bir matris çözücü kullanır.
+                    </p>
+                    <p>
+                        <b class="text-slate-200">Tünelleme Olayı:</b> Enerji $E$, engel yüksekliği $V_0$'dan düşük olduğunda parçacık normalde karşıya geçemez. Fakat bariyer içinde dalga fonksiyonu sıfırlanmak yerine üstel olarak söner. Eğer engel yeterince inceyse, dalganın bir kısmı sönmeden diğer tarafa çıkar ve orada serbest bir parçacık olarak hareketine devam eder.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Mini Fizik Notu -->
+            <div class="text-[10px] text-slate-500 border-t border-slate-800/80 pt-4 mt-4 leading-relaxed">
+                <i class="fa-solid fa-atom mr-1 text-cyan-400 animate-spin"></i>
+                Kuantum tünelleme olmasa ne Güneş parlayabilir ne de bilgisayarlarımızdaki flash bellekler (SSD) çalışabilirdi!
+            </div>
+        </div>
+    </main>
+
+    <!-- Alt Bilgi / Teknoloji Detayları -->
+    <footer class="w-full max-w-7xl mx-auto mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-900 pt-3 text-[10px] text-slate-500">
+        <div>
+            Kuantum Tünelleme ve Dalga Mekaniği Laboratuvarı.
+        </div>
+        <div class="flex items-center gap-2 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-900/60">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            <span>Crank-Nicolson Kararlı Çözücü Aktif</span>
+        </div>
+    </footer>
+
+    <!-- STEAMING_CHUNK: Coding complex numbers arithmetic and solver variables... -->
+    <!-- Kuantum Mekaniksel Sayısal Çözüm Kodları -->
+    <script>
+        // Complex Number arithmetic helper functions for TDSE
+        const Complex = {
+            create: (r, i) => [r, i],
+            add: (a, b) => [a[0] + b[0], a[1] + b[1]],
+            sub: (a, b) => [a[0] - b[0], a[1] - b[1]],
+            mul: (a, b) => [a[0]*b[0] - a[1]*b[1], a[0]*b[1] + a[1]*b[0]],
+            scale: (a, s) => [a[0]*s, a[1]*s],
+            div: (a, b) => {
+                const denom = b[0]*b[0] + b[1]*b[1];
+                return [(a[0]*b[0] + a[1]*b[1]) / denom, (a[1]*b[0] - a[0]*b[1]) / denom];
+            },
+            mag2: (a) => a[0]*a[0] + a[1]*a[1]
+        };
+
+        // DOM Elements
+        const canvas = document.getElementById('schrodingerCanvas');
+        const ctx = canvas.getContext('2d');
+        const sliderK = document.getElementById('sliderK');
+        const sliderSigma = document.getElementById('sliderSigma');
+        const sliderV0 = document.getElementById('sliderV0');
+        const sliderW = document.getElementById('sliderW');
+        
+        const valK = document.getElementById('valK');
+        const valSigma = document.getElementById('valSigma');
+        const valV0 = document.getElementById('valV0');
+        const valW = document.getElementById('valW');
+
+        const btnPlay = document.getElementById('btnPlay');
+        const btnReset = document.getElementById('btnReset');
+        const playIcon = document.getElementById('playIcon');
+        const playText = document.getElementById('playText');
+
+        const statRef = document.getElementById('statRef');
+        const statBar = document.getElementById('statBar');
+        const statTrans = document.getElementById('statTrans');
+        
+        const infoE = document.getElementById('infoE');
+        const infoV0 = document.getElementById('infoV0');
+        const infoStatus = document.getElementById('infoStatus');
+
+        // Grid parameters
+        const N = 260; // Grid nodes (Resolution)
+        const L = 100.0; // Spatial size
+        const dx = L / (N - 1);
+        const dt = 0.15; // Time step
+
+        // Physics parameters (using scaled units where hbar = 1, m = 1)
+        let k0 = 0.85;
+        let sigma = 4.5;
+        let x0 = 25.0; // Start wave packet on the left
+        let V0 = 0.45;
+        let barrierWidth = 3.0;
+        let barrierPos = 55.0; // Center position of barrier
+
+        // Grid arrays
+        let x = new Float32Array(N);
+        let V = new Float32Array(N);
+        let psi = []; // Array of Complex [re, im]
+
+        // Tridiagonal system variables
+        let a_coeff = []; // Complex Sub-diagonal
+        let b_coeff = []; // Complex Diagonal
+        let c_coeff = []; // Complex Super-diagonal
+
+        // Simulation status
+        let isRunning = true;
+        let isDragging = false;
+
+        // STEAMING_CHUNK: Initializing spatial coordinates and wave packet functions...
+        // Initialize Grid & Spatial Arrays
+        function initGrid() {
+            for (let i = 0; i < N; i++) {
+                x[i] = i * dx;
+            }
+            resetWavePacket();
+            updateBarrier();
+        }
+
+        // Initialize Gaussian Wave Packet
+        function resetWavePacket() {
+            psi = [];
+            // Normalization constant for 1D Gaussian wave packet
+            const norm = 1.0 / Math.sqrt(sigma * Math.sqrt(Math.PI));
+            for (let i = 0; i < N; i++) {
+                const dist = x[i] - x0;
+                const env = Math.exp(- (dist * dist) / (2 * sigma * sigma));
+                const phase_re = Math.cos(k0 * x[i]);
+                const phase_im = Math.sin(k0 * x[i]);
+                psi.push(Complex.scale([phase_re * env, phase_im * env], norm));
+            }
+            normalizePsi();
+        }
+
+        // Ensure proper normalization integral equal to 1.0
+        function normalizePsi() {
+            let sum = 0;
+            for (let i = 0; i < N; i++) {
+                sum += Complex.mag2(psi[i]) * dx;
+            }
+            const normFactor = 1.0 / Math.sqrt(sum);
+            for (let i = 0; i < N; i++) {
+                psi[i] = Complex.scale(psi[i], normFactor);
+            }
+        }
+
+        // Update the potential barrier V(x) based on inputs
+        function updateBarrier() {
+            for (let i = 0; i < N; i++) {
+                // Symmetrical square barrier
+                if (Math.abs(x[i] - barrierPos) <= barrierWidth / 2) {
+                    V[i] = V0;
+                } else if (Math.abs(x[i] - 1.5) < 1.5 || Math.abs(x[i] - (L - 1.5)) < 1.5) {
+                    // Absorbing/infinite-like boundary buffer to prevent wrap-around
+                    V[i] = 2.5; 
+                } else {
+                    V[i] = 0.0;
+                }
+            }
+            precomputeCrankNicolson();
+            updatePhysicsLabels();
+        }
+
+        // STEAMING_CHUNK: Coding Crank-Nicolson precomputations...
+        // Pre-compute Crank-Nicolson matrices (Tridiagonal coefficients)
+        // Crank-Nicolson is unconditionally stable and preserves probability conservation
+        function precomputeCrankNicolson() {
+            const hbar = 1.0;
+            const m = 1.0;
+            
+            // α coefficient: dt / (2 * m * dx^2) in dimensionless variables
+            const alpha = dt / (4 * dx * dx);
+            const beta = dt / 2;
+
+            a_coeff = [];
+            b_coeff = [];
+            c_coeff = [];
+
+            for (let i = 0; i < N; i++) {
+                // sub-diagonal element (a_j)
+                a_coeff.push([0.0, -alpha]);
+                // super-diagonal element (c_j)
+                c_coeff.push([0.0, -alpha]);
+                // main-diagonal element (b_j)
+                b_coeff.push([1.0, 2.0 * alpha + beta * V[i]]);
+            }
+        }
+
+        // Complex Thomas Algorithm to solve the complex tridiagonal system
+        function stepSchrodinger() {
+            // Dirichlet boundary conditions (Psi = 0 at ends)
+            let c_prime = new Array(N);
+            let d_prime = new Array(N);
+
+            const alpha = dt / (4 * dx * dx);
+            const beta = dt / 2;
+
+            // Step 1: Calculate the Right-Hand Side (RHS) vector: d
+            // d_j = i*alpha*psi_{j-1} + (1 - 2i*alpha - i*beta*V_j)*psi_j + i*alpha*psi_{j+1}
+            let rhs = new Array(N);
+            for (let j = 0; j < N; j++) {
+                if (j === 0 || j === N - 1) {
+                    rhs[j] = [0.0, 0.0];
+                    continue;
+                }
+                const term1 = Complex.mul([0.0, alpha], psi[j - 1]);
+                const term2 = Complex.mul([1.0, -2.0 * alpha - beta * V[j]], psi[j]);
+                const term3 = Complex.mul([0.0, alpha], psi[j + 1]);
+                rhs[j] = Complex.add(Complex.add(term1, term2), term3);
+            }
+
+            // Step 2: Forward elimination (Thomas Algorithm)
+            // For node 1
+            c_prime[1] = Complex.div(c_coeff[1], b_coeff[1]);
+            d_prime[1] = Complex.div(rhs[1], b_coeff[1]);
+
+            for (let j = 2; j < N - 1; j++) {
+                // denominator = b_j - a_j * c'_{j-1}
+                const denom = Complex.sub(b_coeff[j], Complex.mul(a_coeff[j], c_prime[j - 1]));
+                c_prime[j] = Complex.div(c_coeff[j], denom);
+                
+                // numerator = d_j - a_j * d'_{j-1}
+                const num = Complex.sub(rhs[j], Complex.mul(a_coeff[j], d_prime[j - 1]));
+                d_prime[j] = Complex.div(num, denom);
+            }
+
+            // Step 3: Backward substitution
+            let next_psi = new Array(N);
+            next_psi[0] = [0.0, 0.0];
+            next_psi[N - 1] = [0.0, 0.0];
+            next_psi[N - 2] = d_prime[N - 2];
+
+            for (let j = N - 3; j >= 1; j--) {
+                next_psi[j] = Complex.sub(d_prime[j], Complex.mul(c_prime[j], next_psi[j + 1]));
+            }
+
+            psi = next_psi;
+        }
+
+        // STEAMING_CHUNK: Handling user inputs and preset configuration...
+        // Update live physics analysis labels
+        function updatePhysicsLabels() {
+            // E ≈ (hbar^2 * k0^2) / (2 * m) in our scaled units
+            const energy = (k0 * k0) / 2;
+            infoE.textContent = `${energy.toFixed(3)} eV`;
+            infoV0.textContent = `${V0.toFixed(3)} eV`;
+
+            if (V0 <= 0) {
+                infoStatus.textContent = "Potansiyel Çukuru Rejimi";
+                infoStatus.className = "text-amber-400 font-bold uppercase tracking-wider text-[10px] bg-amber-500/10 px-2 py-0.5 rounded";
+            } else if (energy < V0) {
+                infoStatus.textContent = "Kuantum Tünelleme (E < V₀)";
+                infoStatus.className = "text-rose-400 font-bold uppercase tracking-wider text-[10px] bg-rose-500/10 px-2 py-0.5 rounded animate-pulse";
+            } else {
+                infoStatus.textContent = "Bariyer Üstü Klasik Rejim (E > V₀)";
+                infoStatus.className = "text-emerald-400 font-bold uppercase tracking-wider text-[10px] bg-emerald-500/10 px-2 py-0.5 rounded";
+            }
+        }
+
+        // Apply predefined presets for fast testing
+        function applyPreset(presetName) {
+            if (presetName === 'tunneling') {
+                k0 = 0.85;
+                sigma = 4.5;
+                V0 = 0.45;
+                barrierWidth = 3.0;
+                barrierPos = 55.0;
+            } else if (presetName === 'reflection') {
+                k0 = 0.65;
+                sigma = 4.0;
+                V0 = 0.95; // High barrier, causes complete wave reflection
+                barrierWidth = 4.0;
+                barrierPos = 55.0;
+            } else if (presetName === 'double') {
+                k0 = 0.9;
+                sigma = 5.0;
+                V0 = 0.55;
+                barrierWidth = 10.0; // Simulated by adjusting code draw behavior or custom double array in the future
+                // For simplicity, we make the single barrier wider to show decay
+                barrierWidth = 7.0;
+                barrierPos = 55.0;
+            } else if (presetName === 'well') {
+                k0 = 0.80;
+                sigma = 4.5;
+                V0 = -0.45; // Negative potential acts as an attractive potential well
+                barrierWidth = 6.0;
+                barrierPos = 55.0;
+            }
+
+            // Sync slider views
+            sliderK.value = k0;
+            sliderSigma.value = sigma;
+            sliderV0.value = V0;
+            sliderW.value = barrierWidth;
+
+            valK.textContent = k0.toFixed(2);
+            valSigma.textContent = sigma.toFixed(2);
+            valV0.textContent = V0.toFixed(2);
+            valW.textContent = barrierWidth.toFixed(1);
+
+            resetWavePacket();
+            updateBarrier();
+        }
+
+        // STEAMING_CHUNK: Drawing visualization canvas...
+        // Main Canvas Draw Loop
+        function drawSimulation() {
+            if (!canvas || !ctx) return;
+
+            const width = canvas.width = canvas.parentElement.clientWidth;
+            const height = canvas.height = canvas.parentElement.clientHeight;
+
+            ctx.clearRect(0, 0, width, height);
+
+            const scaleY = height * 0.4; // Scale wave packet amplitude visually
+            const zeroY = height * 0.6; // Center axis position for zero wave value
+            const barrierScale = scaleY * 0.6; // Height scale of barrier representation
+
+            // 1. Draw Grid Center axis
+            ctx.beginPath();
+            ctx.moveTo(0, zeroY);
+            ctx.lineTo(width, zeroY);
+            ctx.strokeStyle = '#111827';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // 2. Draw Potential Barrier V(x) as solid block
+            ctx.fillStyle = V0 >= 0 ? 'rgba(239, 68, 68, 0.08)' : 'rgba(245, 158, 11, 0.08)';
+            ctx.strokeStyle = V0 >= 0 ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)';
+            ctx.lineWidth = 1.5;
+
+            for (let i = 0; i < N; i++) {
+                if (V[i] !== 0.0 && Math.abs(V[i] - 2.5) > 0.01) {
+                    const canvasX = (x[i] / L) * width;
+                    const barrierHeight = -V[i] * barrierScale;
+                    ctx.fillRect(canvasX, zeroY, (dx / L) * width + 1, barrierHeight);
+                    
+                    // Top line of barrier
+                    ctx.beginPath();
+                    ctx.moveTo(canvasX, zeroY + barrierHeight);
+                    ctx.lineTo(canvasX + (dx / L) * width + 1, zeroY + barrierHeight);
+                    ctx.stroke();
+                }
+            }
+
+            // 3. Draw Real Part of Wave Packet (Waving Dashed Line)
+            ctx.beginPath();
+            ctx.strokeStyle = '#10b981'; // Emerald
+            ctx.lineWidth = 1.2;
+            ctx.setLineDash([3, 4]);
+            for (let i = 0; i < N; i++) {
+                const canvasX = (x[i] / L) * width;
+                const canvasY = zeroY - psi[i][0] * scaleY;
+                if (i === 0) ctx.moveTo(canvasX, canvasY);
+                else ctx.lineTo(canvasX, canvasY);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset line dash
+
+            // 4. Draw Probability Density |ψ(x)|² (Glowing solid filled area)
+            ctx.beginPath();
+            const gradient = ctx.createLinearGradient(0, 0, 0, height);
+            gradient.addColorStop(0, 'rgba(6, 182, 212, 0.35)'); // Glowing Cyan
+            gradient.addColorStop(1, 'rgba(6, 182, 212, 0.01)');
+
+            ctx.fillStyle = gradient;
+            ctx.strokeStyle = '#06b6d4'; // Cyan
+            ctx.lineWidth = 2.5;
+
+            // Draw probability density curve
+            for (let i = 0; i < N; i++) {
+                const canvasX = (x[i] / L) * width;
+                const density = Complex.mag2(psi[i]);
+                const canvasY = zeroY - density * scaleY * 1.5; // Scaled for better visibility
+                if (i === 0) ctx.moveTo(canvasX, canvasY);
+                else ctx.lineTo(canvasX, canvasY);
+            }
+            ctx.stroke();
+
+            // Close shape to paint filled area below
+            ctx.lineTo(width, zeroY);
+            ctx.lineTo(0, zeroY);
+            ctx.closePath();
+            ctx.fill();
+
+            // 5. Draw Barrier Center indicator
+            ctx.beginPath();
+            ctx.arc((barrierPos / L) * width, zeroY - V0 * barrierScale, 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#ff0055';
+            ctx.fill();
+
+            // Calculate live probabilities (Integrals of Left, Center, Right)
+            calculateProbabilities();
+        }
+
+        // STEAMING_CHUNK: Integrating wave probability density partitions...
+        // Integrate parts of wave packet to compute Reflection and Transmission stats
+        function calculateProbabilities() {
+            let reflectionProb = 0.0;
+            let insideBarrierProb = 0.0;
+            let transmissionProb = 0.0;
+
+            const barrierStart = barrierPos - (barrierWidth / 2);
+            const barrierEnd = barrierPos + (barrierWidth / 2);
+
+            for (let i = 0; i < N; i++) {
+                const density = Complex.mag2(psi[i]) * dx;
+                if (x[i] < barrierStart) {
+                    reflectionProb += density;
+                } else if (x[i] > barrierEnd) {
+                    transmissionProb += density;
+                } else {
+                    insideBarrierProb += density;
+                }
+            }
+
+            // Display stats in percentages
+            statRef.textContent = `${(reflectionProb * 100).toFixed(1)}%`;
+            statBar.textContent = `${(insideBarrierProb * 100).toFixed(1)}%`;
+            statTrans.textContent = `${(transmissionProb * 100).toFixed(1)}%`;
+        }
+
+        // Interactive mouse placement of the barrier
+        function handleMouseInteraction(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const mappedX = (clickX / rect.width) * L;
+            if (mappedX > 10 && mappedX < L - 10) {
+                barrierPos = mappedX;
+                updateBarrier();
+            }
+        }
+
+        // STEAMING_CHUNK: Setting up listeners and starting animation loop...
+        // Event Listeners for controls
+        sliderK.addEventListener('input', () => {
+            k0 = parseFloat(sliderK.value);
+            valK.textContent = k0.toFixed(2);
+            resetWavePacket();
+            updatePhysicsLabels();
+        });
+
+        sliderSigma.addEventListener('input', () => {
+            sigma = parseFloat(sliderSigma.value);
+            valSigma.textContent = sigma.toFixed(2);
+            resetWavePacket();
+        });
+
+        sliderV0.addEventListener('input', () => {
+            V0 = parseFloat(sliderV0.value);
+            valV0.textContent = V0.toFixed(2);
+            updateBarrier();
+        });
+
+        sliderW.addEventListener('input', () => {
+            barrierWidth = parseFloat(sliderW.value);
+            valW.textContent = barrierWidth.toFixed(1);
+            updateBarrier();
+        });
+
+        btnPlay.addEventListener('click', () => {
+            isRunning = !isRunning;
+            if (isRunning) {
+                playIcon.className = "fa-solid fa-pause";
+                playText.textContent = "Durdur";
+            } else {
+                playIcon.className = "fa-solid fa-play";
+                playText.textContent = "Başlat";
+            }
+        });
+
+        btnReset.addEventListener('click', () => {
+            resetWavePacket();
+        });
+
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            handleMouseInteraction(e);
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (isDragging) handleMouseInteraction(e);
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        // Touch support for mobile devices
+        canvas.addEventListener('touchstart', (e) => {
+            isDragging = true;
+            if (e.touches.length > 0) handleMouseInteraction(e.touches[0]);
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            if (isDragging && e.touches.length > 0) handleMouseInteraction(e.touches[0]);
+        });
+
+        window.addEventListener('touchend', () => {
+            isDragging = false;
+        });
+
+        // Main Simulation Loop
+        function mainLoop() {
+            if (isRunning) {
+                stepSchrodinger();
+            }
+            drawSimulation();
+            requestAnimationFrame(mainLoop);
+        }
+
+        // Start everything on window load
+        window.onload = function() {
+            initGrid();
+            mainLoop();
+        };
+    </script>
+</body>
+</html>
