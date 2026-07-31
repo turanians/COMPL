@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gelişmiş Ses Dalgaları ve Doppler Simülasyonu</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    body {
+      background-color: #0f172a;
+      color: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      min-height: 100vh;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 10px;
+      color: #38bdf8;
+    }
+    .container {
+      width: 100%;
+      max-width: 900px;
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+    canvas {
+      width: 100%;
+      background: #090d16;
+      border-radius: 8px;
+      display: block;
+      margin-bottom: 15px;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      background: #0f172a;
+      padding: 15px;
+      border-radius: 8px;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    label {
+      font-size: 0.85rem;
+      color: #94a3b8;
+    }
+    input[type="range"] {
+      width: 100%;
+      accent-color: #38bdf8;
+    }
+    .btn-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      grid-column: 1 / -1;
+      margin-top: 10px;
+    }
+    button {
+      flex: 1;
+      min-width: 140px;
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #334155;
+      color: #f8fafc;
+    }
+    button.active {
+      background: #0284c7;
+      color: #fff;
+    }
+    button:hover {
+      opacity: 0.9;
+    }
+    .pause-btn {
+      background: #eab308;
+      color: #0f172a;
+    }
+    .pause-btn.paused {
+      background: #22c55e;
+      color: #fff;
+    }
+    .audio-btn {
+      background: #e11d48;
+    }
+    .audio-btn.active {
+      background: #10b981;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Boyuna Dalga & Doppler Etkisi Laboratuvarı</h1>
+
+  <div class="container">
+    <canvas id="simCanvas" width="850" height="520"></canvas>
+
+    <div class="controls">
+      <div class="control-group">
+        <label for="freq">Kaynak Frekansı (Hz): <span id="freqVal">2.0</span></label>
+        <input type="range" id="freq" min="0.5" max="4.0" step="0.1" value="2.0">
+      </div>
+
+      <div class="control-group">
+        <label for="amp">Genlik / Şiddet: <span id="ampVal">30</span></label>
+        <input type="range" id="amp" min="5" max="50" step="1" value="30">
+      </div>
+
+      <div class="control-group">
+        <label for="sourceVel">Kaynak Hızı (v_kaynak): <span id="velVal">1.5</span></label>
+        <input type="range" id="sourceVel" min="-2.5" max="2.5" step="0.1" value="1.5">
+      </div>
+
+      <div class="btn-group">
+        <button id="togglePause" class="pause-btn">Dondur / Duraklat ❚❚</button>
+        <button id="toggleTrace" class="active">Kırmızı İzci Tanecik</button>
+        <button id="toggleAnchors" class="active">Denge Çizgileri</button>
+        <button id="toggleWavefronts" class="active">2D Dalga Cepheleri</button>
+        <button id="toggleReflect">Sabit Uç Engelsiz</button>
+        <button id="toggleAudio" class="audio-btn">Sesi Aç</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // UI Controls
+    const freqInput = document.getElementById('freq');
+    const ampInput = document.getElementById('amp');
+    const velInput = document.getElementById('sourceVel');
+    const freqVal = document.getElementById('freqVal');
+    const ampVal = document.getElementById('ampVal');
+    const velVal = document.getElementById('velVal');
+    
+    const togglePauseBtn = document.getElementById('togglePause');
+    const toggleTraceBtn = document.getElementById('toggleTrace');
+    const toggleAnchorsBtn = document.getElementById('toggleAnchors');
+    const toggleWavefrontBtn = document.getElementById('toggleWavefronts');
+    const toggleReflectBtn = document.getElementById('toggleReflect');
+    const toggleAudioBtn = document.getElementById('toggleAudio');
+
+    // Parameters
+    let frequency = parseFloat(freqInput.value);
+    let amplitude = parseFloat(ampInput.value);
+    let sourceVelocity = parseFloat(velInput.value);
+    
+    let isPaused = false;
+    let showTrace = true;
+    let showAnchors = true;
+    let showWavefronts = true;
+    let isReflecting = false;
+    let isAudioOn = false;
+
+    // Constants & Simulation Variables
+    const waveSpeed = 3.5; 
+    let time = 0;
+    let sourceX = 200;
+    let lastPulseTime = 0;
+    
+    // Doppler 2D wavefront list
+    const wavefronts = [];
+
+    // Web Audio API
+    let audioCtx = null;
+    let oscillator = null;
+    let gainNode = null;
+
+    function initAudio() {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      oscillator = audioCtx.createOscillator();
+      gainNode = audioCtx.createGain();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(220, audioCtx.currentTime);
+      gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      oscillator.start();
+    }
+
+    function updateAudio() {
+      if (!audioCtx || !isAudioOn || isPaused) return;
+      
+      let effectiveVel = sourceVelocity;
+      let dopplerFactor = waveSpeed / Math.max(0.2, (waveSpeed - effectiveVel));
+      let targetAudioFreq = frequency * 110 * dopplerFactor; 
+
+      targetAudioFreq = Math.max(50, Math.min(1800, targetAudioFreq));
+
+      oscillator.frequency.setTargetAtTime(targetAudioFreq, audioCtx.currentTime, 0.05);
+      gainNode.gain.setTargetAtTime((amplitude / 50) * 0.1, audioCtx.currentTime, 0.05);
+    }
+
+    // Grid of particles for 1D Longitudinal view
+    const particles = [];
+    const numRows = 8;
+    const numCols = 70;
+    const startX = 80;
+    const endX = 800;
+    const spacingX = (endX - startX) / numCols;
+    const startY = 40;
+    const spacingY = 14;
+
+    for (let r = 0; r < numRows; r++) {
+      for (let c = 0; c < numCols; c++) {
+        particles.push({
+          baseX: startX + c * spacingX,
+          baseY: startY + r * spacingY,
+          col: c,
+          row: r
+        });
+      }
+    }
+
+    // Event Listeners
+    freqInput.addEventListener('input', (e) => {
+      frequency = parseFloat(e.target.value);
+      freqVal.textContent = frequency.toFixed(1);
+    });
+
+    ampInput.addEventListener('input', (e) => {
+      amplitude = parseFloat(e.target.value);
+      ampVal.textContent = amplitude;
+    });
+
+    velInput.addEventListener('input', (e) => {
+      sourceVelocity = parseFloat(e.target.value);
+      velVal.textContent = sourceVelocity.toFixed(1);
+    });
+
+    togglePauseBtn.addEventListener('click', () => {
+      isPaused = !isPaused;
+      togglePauseBtn.textContent = isPaused ? "Devam Et ▶" : "Dondur / Duraklat ❚❚";
+      togglePauseBtn.classList.toggle('paused', isPaused);
+      if (isAudioOn && gainNode) {
+        gainNode.gain.setTargetAtTime(isPaused ? 0 : (amplitude / 50) * 0.1, audioCtx.currentTime, 0.02);
+      }
+    });
+
+    toggleTraceBtn.addEventListener('click', () => {
+      showTrace = !showTrace;
+      toggleTraceBtn.classList.toggle('active', showTrace);
+    });
+
+    toggleAnchorsBtn.addEventListener('click', () => {
+      showAnchors = !showAnchors;
+      toggleAnchorsBtn.classList.toggle('active', showAnchors);
+    });
+
+    toggleWavefrontBtn.addEventListener('click', () => {
+      showWavefronts = !showWavefronts;
+      toggleWavefrontBtn.classList.toggle('active', showWavefronts);
+    });
+
+    toggleReflectBtn.addEventListener('click', () => {
+      isReflecting = !isReflecting;
+      toggleReflectBtn.textContent = isReflecting ? "Sabit Uç Engeli Var" : "Sabit Uç Engelsiz";
+      toggleReflectBtn.classList.toggle('active', isReflecting);
+    });
+
+    toggleAudioBtn.addEventListener('click', () => {
+      if (!audioCtx) initAudio();
+      
+      isAudioOn = !isAudioOn;
+      if (isAudioOn) {
+        audioCtx.resume();
+        gainNode.connect(audioCtx.destination);
+        toggleAudioBtn.textContent = "Sesi Kapat";
+        toggleAudioBtn.classList.add('active');
+      } else {
+        gainNode.disconnect();
+        toggleAudioBtn.textContent = "Sesi Aç";
+        toggleAudioBtn.classList.remove('active');
+      }
+    });
+
+    // Calculate displacement for 1D particles
+    function getDisplacement(x, currentSourceX, t) {
+      let k = (2 * Math.PI * frequency) / (waveSpeed * 20);
+      let omega = 2 * Math.PI * frequency;
+
+      let dist = x - currentSourceX;
+      if (dist < 0) return 0;
+
+      let phase = k * dist - omega * t;
+      let disp = amplitude * Math.sin(phase);
+
+      if (isReflecting) {
+        let reflectX = endX;
+        let distReflect = (reflectX - currentSourceX) + (reflectX - x);
+        let phaseReflect = k * distReflect - omega * t + Math.PI;
+        if (x <= reflectX && (t * waveSpeed * 20) > (reflectX - currentSourceX)) {
+          disp += amplitude * Math.sin(phaseReflect);
+        }
+      }
+
+      return disp;
+    }
+
+    // Main Loop
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (!isPaused) {
+        time += 0.03;
+
+        // Source position update
+        sourceX += sourceVelocity * 0.8;
+        if (sourceX > 750) sourceX = 100;
+        if (sourceX < 80) sourceX = 750;
+
+        // Emit new 2D wavefront periodically
+        let pulseInterval = 1 / frequency;
+        if (time - lastPulseTime >= pulseInterval) {
+          wavefronts.push({ x: sourceX, y: 280, radius: 0 });
+          lastPulseTime = time;
+        }
+
+        // Expand 2D wavefronts
+        for (let i = wavefronts.length - 1; i >= 0; i--) {
+          wavefronts[i].radius += waveSpeed * 0.8;
+          if (wavefronts[i].radius > 700) {
+            wavefronts.splice(i, 1);
+          }
+        }
+
+        updateAudio();
+      }
+
+      // --- 1. Labels ---
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '13px sans-serif';
+      ctx.fillText("1. Havadaki Molekül Titreşimleri (Boyuna Dalga)", 15, 25);
+      ctx.fillText("2. Doppler Etkisi Dalga Cepheleri (2D Görünüm)", 15, 185);
+      ctx.fillText("3. Basınç / Yer Değiştirme Grafiği (Enine Temsil)", 15, 395);
+
+      // --- 2. 1D Longitudinal View ---
+      let pistonDisp = amplitude * Math.sin(-2 * Math.PI * frequency * time);
+      let pistonX = sourceX + pistonDisp * 0.2;
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(pistonX - 10, startY - 5, 10, numRows * spacingY + 10);
+
+      if (isReflecting) {
+        ctx.fillStyle = '#ef4444';
+        ctx.fillRect(endX, startY - 5, 8, numRows * spacingY + 10);
+      }
+
+      // Draw Equilibrium Anchor Lines if enabled
+      if (showAnchors) {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.lineWidth = 1;
+        for (let c = 0; c < numCols; c += 4) {
+          let anchorX = startX + c * spacingX;
+          ctx.beginPath();
+          ctx.moveTo(anchorX, startY - 5);
+          ctx.lineTo(anchorX, startY + numRows * spacingY + 5);
+          ctx.stroke();
+        }
+      }
+
+      let trackedParticleX = 0;
+      let trackedBaseX = 0;
+
+      particles.forEach(p => {
+        let disp = getDisplacement(p.baseX, sourceX, time);
+        let currentX = p.baseX + disp;
+        let isTracked = showTrace && p.col === 35 && p.row === 4;
+
+        ctx.beginPath();
+        ctx.arc(currentX, p.baseY, isTracked ? 5 : 2.5, 0, Math.PI * 2);
+        
+        if (isTracked) {
+          ctx.fillStyle = '#ef4444';
+          trackedParticleX = currentX;
+          trackedBaseX = p.baseX;
+        } else {
+          ctx.fillStyle = '#94a3b8';
+        }
+        ctx.fill();
+      });
+
+      if (showTrace && trackedParticleX > 0) {
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(trackedBaseX, startY - 5);
+        ctx.lineTo(trackedBaseX, 490);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(trackedParticleX, startY + 4 * spacingY);
+        ctx.lineTo(trackedParticleX, 490);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // --- 3. 2D Doppler Wavefront Section ---
+      const waveAreaY = 280;
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(startX, waveAreaY - 80, endX - startX, 160);
+
+      if (showWavefronts) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(startX, waveAreaY - 80, endX - startX, 160);
+        ctx.clip();
+
+        wavefronts.forEach(wf => {
+          ctx.beginPath();
+          ctx.arc(wf.x, wf.y, wf.radius, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        });
+        ctx.restore();
+      }
+
+      // Moving Source Icon
+      ctx.beginPath();
+      ctx.arc(sourceX, waveAreaY, 7, 0, Math.PI * 2);
+      ctx.fillStyle = '#f59e0b';
+      ctx.fill();
+
+      if (Math.abs(sourceVelocity) > 0.1) {
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(sourceX, waveAreaY);
+        ctx.lineTo(sourceX + sourceVelocity * 15, waveAreaY);
+        ctx.stroke();
+
+        let arrowDir = Math.sign(sourceVelocity);
+        ctx.beginPath();
+        ctx.moveTo(sourceX + sourceVelocity * 15, waveAreaY);
+        ctx.lineTo(sourceX + sourceVelocity * 15 - arrowDir * 5, waveAreaY - 4);
+        ctx.lineTo(sourceX + sourceVelocity * 15 - arrowDir * 5, waveAreaY + 4);
+        ctx.fillStyle = '#f59e0b';
+        ctx.fill();
+      }
+
+      // --- 4. Transverse Wave Graph ---
+      const graphBaseY = 450;
+      const graphHeight = 40;
+
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(startX, graphBaseY);
+      ctx.lineTo(endX, graphBaseY);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+
+      for (let x = startX; x <= endX; x += 2) {
+        let disp = getDisplacement(x, sourceX, time);
+        let y = graphBaseY - (disp / 50) * graphHeight;
+
+        if (x === startX) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+  </script>
+</body>
+</html>
