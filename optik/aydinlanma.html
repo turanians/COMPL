@@ -2,30 +2,83 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Eksiksiz 3D Optik Laboratuvarı</title>
+    <title>Muchos Amigos:)))</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #050505; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         
+        /* SOL KONTROL PANELİ */
         #panel {
             position: absolute; top: 15px; left: 15px;
             color: white; background: rgba(15, 15, 15, 0.92);
             padding: 20px; border-radius: 12px; font-size: 14px; line-height: 1.6;
-            width: 320px; box-shadow: 0 15px 35px rgba(0,0,0,0.8);
+            width: 300px; box-shadow: 0 15px 35px rgba(0,0,0,0.8);
             border: 1px solid #3c3c3c;
             z-index: 10;
         }
         
-        h3 { margin-top: 0; margin-bottom: 15px; border-bottom: 1px solid #444; padding-bottom: 5px; color: #ffeb3b; }
-        .control-group { margin-bottom: 15px; }
-        label { display: block; font-weight: bold; margin-bottom: 5px; color: #bbb; }
+        h3 { margin-top: 0; margin-bottom: 12px; border-bottom: 1px solid #444; padding-bottom: 5px; color: #ffeb3b; }
+        .control-group { margin-bottom: 12px; }
+        label { display: block; font-weight: bold; margin-bottom: 4px; color: #bbb; }
         input[type="range"] { width: 100%; cursor: pointer; accent-color: #ffeb3b; }
-        
-        .data-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+
+        /* SAĞ BÜYÜK SONUÇ & İBRE PANELİ */
+        #results-card {
+            position: absolute;
+            top: 15px; right: 15px;
+            width: 320px;
+            background: rgba(10, 14, 23, 0.94);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 235, 59, 0.4);
+            border-radius: 16px;
+            padding: 20px;
+            color: #fff;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.9);
+            z-index: 10;
+        }
+
+        .data-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 15px; }
         .highlight { color: #ffeb3b; font-weight: bold; }
         .highlight-blue { color: #00e5ff; font-weight: bold; }
         .highlight-red { color: #ff5252; font-weight: bold; }
         .highlight-green { color: #4caf50; font-weight: bold; }
+
+        /* ANALOG İBRE KONTROLÜ (KADRAN) */
+        .gauge-container {
+            position: relative;
+            width: 100%;
+            height: 140px;
+            margin-top: 15px;
+            background: rgba(0,0,0,0.4);
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            padding-bottom: 10px;
+            box-sizing: border-box;
+        }
+
+        .gauge-canvas {
+            width: 260px;
+            height: 130px;
+        }
+
+        /* BÜYÜK SONUÇ KUTULARI (AKI VE AYDINLANMA) */
+        .display-card-large {
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
         
+        .phi-card { border: 1px solid #4caf50; }
+        .e-card { border: 1px solid #ffeb3b; margin-top: 10px; margin-bottom: 0; }
+
+        .phi-val { font-size: 26px; font-weight: 800; font-family: 'Consolas', monospace; color: #4caf50; }
+        .e-val { font-size: 26px; font-weight: 800; font-family: 'Consolas', monospace; color: #ffeb3b; }
+
         #instruction {
             position: absolute; bottom: 15px; right: 15px;
             color: #888; font-size: 12px; background: rgba(0,0,0,0.6);
@@ -37,6 +90,7 @@
 </head>
 <body>
 
+    <!-- SOL KONTROL PANELİ -->
     <div id="panel">
         <h3>🎛️ Laboratuvar Ayarları</h3>
         
@@ -47,7 +101,7 @@
 
         <div class="control-group">
             <label>Yüzey Dönüşü (Eğim): <span id="lbl-yuzey-aci" class="highlight-red">0</span>°</label>
-            <input type="range" id="slide-yuzey-aci" min="-90" max="90" step="10" value="0">
+            <input type="range" id="slide-yuzey-aci" min="-90" max="90" step="1" value="0">
         </div>
 
         <div class="control-group">
@@ -59,26 +113,39 @@
             <label>Işık Şiddeti (I): <span id="lbl-isik" class="highlight-blue">150</span> cd</label>
             <input type="range" id="slide-isik" min="10" max="500" step="5" value="150">
         </div>
+    </div>
 
-        <h3>🔬 Canlı Analiz Verileri</h3>
+    <!-- SAĞ BÜYÜK SONUÇ PANELİ -->
+    <div id="results-card">
+        <h3>🔬 Ölçüm ve Akı Kadranı</h3>
+        
         <div class="data-row">
-            <span>Normal ile Açı (θ):</span>
+            <span>Açı (θ):</span>
             <span id="val-aci-gercek" class="highlight-red">0.0°</span>
         </div>
-        <div class="data-row">
-            <span>Aydınlanma (E_merkez):</span>
-            <span id="val-e" class="highlight">0.00 lux</span>
+
+        <!-- BÜYÜK AKI KUTUSU -->
+        <div class="display-card-large phi-card">
+            <div style="font-size: 11px; color: #aaa; text-transform: uppercase;">Yüzeye Düşen Net Akı (Φ)</div>
+            <div id="val-phi" class="phi-val">0.00 lm</div>
         </div>
-        <div class="data-row">
-            <span>🎯 Yüzeye Düşen Net Akı:</span>
-            <span id="val-phi" class="highlight-green">0.00 lm</span>
+
+        <!-- YARIM SAAT GÖSTERGESİ (ANALOG İBRE) -->
+        <div class="gauge-container">
+            <canvas id="gaugeCanvas" class="gauge-canvas" width="260" height="130"></canvas>
+        </div>
+
+        <!-- BÜYÜK MERKEZ AYDINLANMA ŞİDDETİ KUTUSU (İBRENİN ALTINDA) -->
+        <div class="display-card-large e-card">
+            <div style="font-size: 11px; color: #aaa; text-transform: uppercase;">Tam Ortadaki Nokta Aydınlanma Şiddeti (E)</div>
+            <div id="val-e" class="e-val">0.00 lux</div>
         </div>
     </div>
 
     <div id="instruction">🖱️ Mouse ile sürükleyerek bakış açınızı değiştirebilirsiniz.</div>
 
     <script>
-        // 1. SAHNE VE KAMERA
+        // --- 1. SAHNE VE KAMERA ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -92,7 +159,7 @@
         controls.dampingFactor = 0.05;
         controls.target.set(0, 0, 0);
 
-        // 2. IŞIK KAYNAĞI
+        // --- 2. IŞIK KAYNAĞI ---
         const pointLight = new THREE.PointLight(0xffffff, 1, 100); 
         pointLight.position.set(-2.5, 0, 0);
         scene.add(pointLight);
@@ -107,12 +174,9 @@
         const ambientLight = new THREE.AmbientLight(0x222222);
         scene.add(ambientLight);
 
-        const lightHelper = new THREE.PointLightHelper(pointLight, 0.3, 0xffeb3b);
-        scene.add(lightHelper);
-
-        // 3. TAM 3D YÜZEY (Başlangıç boyutları)
+        // --- 3. TAM 3D YÜZEY ---
         const yuzeyKalinlik = 0.12; 
-        const yuzeyGeo = new THREE.BoxGeometry(yuzeyKalinlik, 1, 1); // Ölçeklendirmeyi kod içinde dinamik yapacağız
+        const yuzeyGeo = new THREE.BoxGeometry(yuzeyKalinlik, 1, 1);
         const yuzeyMat = new THREE.MeshStandardMaterial({ 
             color: 0xffffff, 
             roughness: 0.4,
@@ -121,7 +185,7 @@
         const yuzeyMesh = new THREE.Mesh(yuzeyGeo, yuzeyMat);
         scene.add(yuzeyMesh);
 
-        // 4. VEKTÖRLER
+        // --- 4. VEKTÖRLER ---
         const rayLineMat = new THREE.LineBasicMaterial({ color: 0xff5252, transparent: true, opacity: 0.7 });
         const rayLineGeo = new THREE.BufferGeometry().setFromPoints([lightMesh.position, yuzeyMesh.position]);
         const rayLine = new THREE.Line(rayLineGeo, rayLineMat);
@@ -131,7 +195,7 @@
         const normalArrow = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), arrowLength, 0x2979ff, 0.2, 0.1);
         scene.add(normalArrow);
 
-        // ELEMENT TANIMLARI
+        // DOM ELEMANLARI
         const slideR = document.getElementById('slide-r');
         const slideYuzeyAci = document.getElementById('slide-yuzey-aci');
         const slideAlan = document.getElementById('slide-alan');
@@ -146,6 +210,74 @@
         const valE = document.getElementById('val-e');
         const valPhi = document.getElementById('val-phi');
 
+        // GAUGE CANVAS
+        const gaugeCanvas = document.getElementById('gaugeCanvas');
+        const gCtx = gaugeCanvas.getContext('2d');
+
+        // ANALOG İBRE ÇİZİM FONKSİYONU
+        function drawGauge(currentPhi, maxPhiPossible) {
+            const w = gaugeCanvas.width;
+            const h = gaugeCanvas.height;
+            const cx = w / 2;
+            const cy = h - 15;
+            const r = 95;
+
+            gCtx.clearRect(0, 0, w, h);
+
+            // Kadran Arka Plan Yayı (180 Derece Yarım Daire)
+            gCtx.beginPath();
+            gCtx.arc(cx, cy, r, Math.PI, 2 * Math.PI, false);
+            gCtx.lineWidth = 14;
+            gCtx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            gCtx.stroke();
+
+            // Renkli Şeritler
+            const grad = gCtx.createLinearGradient(0, 0, w, 0);
+            grad.addColorStop(0, '#ff5252');   // MIN (Sol)
+            grad.addColorStop(0.5, '#4caf50'); // MAX (Orta)
+            grad.addColorStop(1, '#ff5252');   // MIN (Sağ)
+
+            gCtx.beginPath();
+            gCtx.arc(cx, cy, r, Math.PI, 2 * Math.PI, false);
+            gCtx.lineWidth = 8;
+            gCtx.strokeStyle = grad;
+            gCtx.stroke();
+
+            // Etiketler (MIN - MAX - MIN)
+            gCtx.fillStyle = '#ff5252';
+            gCtx.font = 'bold 11px sans-serif';
+            gCtx.fillText('MIN', cx - r + 5, cy + 12);
+            gCtx.fillText('MIN', cx + r - 25, cy + 12);
+
+            gCtx.fillStyle = '#4caf50';
+            gCtx.font = 'bold 12px sans-serif';
+            gCtx.fillText('MAX', cx - 13, cy - r - 8);
+
+            // İbre Açı Hesaplaması
+            const inputAngleDeg = parseFloat(slideYuzeyAci.value);
+            const needleAngle = Math.PI + ((inputAngleDeg + 90) / 180) * Math.PI;
+
+            // İbre Çizimi
+            gCtx.save();
+            gCtx.translate(cx, cy);
+            gCtx.rotate(needleAngle);
+
+            gCtx.beginPath();
+            gCtx.moveTo(0, -8);
+            gCtx.lineTo(r - 15, 0);
+            gCtx.lineTo(0, 8);
+            gCtx.fillStyle = '#ffeb3b';
+            gCtx.fill();
+
+            gCtx.restore();
+
+            // İbre Merkezi Düğme
+            gCtx.beginPath();
+            gCtx.arc(cx, cy, 8, 0, Math.PI * 2);
+            gCtx.fillStyle = '#ffffff';
+            gCtx.fill();
+        }
+
         function guncelle() {
             const r = parseFloat(slideR.value);
             const yuzeyAciDerece = parseFloat(slideYuzeyAci.value);
@@ -157,20 +289,15 @@
             lblAlan.innerText = yuzeyAlani.toFixed(2);
             lblIsik.innerText = isikSiddeti;
 
-            // --- 📐 ALAN VE BOYUT GÜNCELLEMESİ 📐 ---
-            // Kare bir yüzey varsayımıyla kenar uzunluğu = kök(Alan)
+            // Dinamik Yüzey Ölçeklendirmesi
             const kenar = Math.sqrt(yuzeyAlani);
-            // 3D kutunun Y ve Z eksenindeki boyutlarını (en ve boy) dinamik olarak ölçeklendiriyoruz
             yuzeyMesh.scale.set(1, kenar, kenar);
-
-            // Mesafeye göre pozisyon
             yuzeyMesh.position.x = -2.5 + r;
 
-            // Eğim açısı
             const aciRadyan = yuzeyAciDerece * (Math.PI / 180);
             yuzeyMesh.rotation.y = aciRadyan;
 
-            // Çizgileri bağla
+            // Vektör Güncellemeleri
             rayLine.geometry.setFromPoints([lightMesh.position, yuzeyMesh.position]);
             normalArrow.position.copy(yuzeyMesh.position);
             
@@ -178,7 +305,7 @@
             normalArrow.setDirection(dinamikNormal);
             normalArrow.position.addScaledVector(dinamikNormal, -arrowLength / 2);
 
-            // --- FİZİKSEL MATEMATİK HESABI ---
+            // Fizik Hesabı
             const isikYonu = new THREE.Vector3().subVectors(yuzeyMesh.position, lightMesh.position).normalize();
             let cosTheta = dinamikNormal.dot(isikYonu);
             
@@ -193,10 +320,10 @@
                 E_merkez = 0;
             }
 
-            // Phi = E * A (Aydınlanma Şiddeti * Yeni Dinamik Alan)
             const yuzeyPhi = E_merkez * yuzeyAlani;
+            const maxPossiblePhi = (isikSiddeti / (r * r)) * yuzeyAlani;
 
-            // Görsel Parlaklık Kalibrasyonu
+            // Yüzey Parlaklık Kalibrasyonu
             const maxLuxReferans = 50.0;
             let parlaklikOrani = Math.min(Math.max(E_merkez / maxLuxReferans, 0.0), 1.0);
             if (E_merkez <= 0) parlaklikOrani = 0.05;
@@ -205,13 +332,16 @@
             yuzeyMesh.material.color.setRGB(R_G_B, R_G_B, R_G_B);
             pointLight.intensity = parlaklikOrani * 4.5;
 
-            // Verileri ekrana bas
+            // Metin Verilerini Güncelle
             valAciGercek.innerText = gercekAciDerece.toFixed(1) + "°";
             valE.innerText = E_merkez.toFixed(2) + " lux";
             valPhi.innerText = yuzeyPhi.toFixed(2) + " lm";
+
+            // Analog Göstergeyi Çiz
+            drawGauge(yuzeyPhi, maxPossiblePhi);
         }
 
-        // Tüm slider'lar için dinleyiciler
+        // Dinleyiciler
         slideR.addEventListener('input', guncelle);
         slideYuzeyAci.addEventListener('input', guncelle);
         slideAlan.addEventListener('input', guncelle);
