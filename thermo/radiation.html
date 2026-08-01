@@ -1,1 +1,917 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>İzole Sistemde İç Enerji ve Denge Sıcaklığı Simülasyonu</title>
+    <style>
+        :root {
+            --bg-main: #050508;
+            --bg-card: #08080d;
+            --panel-bg: #12121a;
+            --border-color: #1e1e2d;
+            --accent-blue: #1971c2;
+            --accent-light-blue: #4dabf7;
+            --accent-red: #ff6b6b;
+            --accent-green: #51cf66;
+            --accent-yellow: #fcc419;
+            --text-main: #f8f9fa;
+            --text-muted: #8a8a9e;
+        }
 
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* --- ÜST BAR --- */
+        .top-bar {
+            width: 100%;
+            background-color: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            padding: 8px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-sizing: border-box;
+            font-size: 0.85rem;
+            margin-bottom: 20px;
+        }
+
+        .lang-selector {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .lang-label {
+            color: var(--accent-light-blue);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .lang-buttons {
+            display: flex;
+            gap: 4px;
+            background: #12121a;
+            padding: 2px;
+            border-radius: 6px;
+            border: 1px solid #2c2c3e;
+        }
+
+        .lang-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 4px 10px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .lang-btn:hover {
+            color: #ffffff;
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .lang-btn.active {
+            background-color: var(--accent-blue);
+            color: #ffffff;
+            box-shadow: 0 0 8px rgba(25, 113, 194, 0.5);
+        }
+
+        .top-bar-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .visitor-counter {
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            color: #10b981;
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: monospace;
+        }
+
+        .email-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: color 0.2s;
+        }
+
+        .email-link:hover {
+            color: var(--accent-light-blue);
+        }
+
+        /* --- SİMÜLASYON DÜZENİ --- */
+        .header-title {
+            width: 100%;
+            max-width: 1200px;
+            margin-bottom: 15px;
+            padding: 0 10px;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            color: var(--accent-yellow);
+            font-size: 1.5rem;
+            margin: 0 0 5px 0;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            margin: 0;
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+            padding: 0 10px;
+            box-sizing: border-box;
+            margin-bottom: 40px;
+        }
+
+        .panel {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        canvas {
+            background-color: #050508;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            width: 100%;
+            display: block;
+        }
+
+        .input-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            background: #08080c;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .input-box {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .input-box label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .input-box input[type="range"] {
+            width: 100%;
+            accent-color: var(--accent-yellow);
+        }
+
+        .process-box {
+            background: rgba(252, 196, 25, 0.04);
+            border: 1px solid rgba(252, 196, 25, 0.25);
+            border-radius: 8px;
+            padding: 12px 15px;
+            font-size: 0.85rem;
+            line-height: 1.45;
+        }
+
+        .process-title {
+            color: var(--accent-yellow);
+            font-weight: bold;
+            font-size: 0.9rem;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .process-status {
+            color: var(--accent-light-blue);
+            font-weight: 600;
+        }
+
+        .metrics-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .metric-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .metric-card.hot { border-color: rgba(255, 107, 107, 0.4); }
+        .metric-card.cold { border-color: rgba(77, 171, 247, 0.4); }
+
+        .metric-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .data-box {
+            background: #08080c;
+            border: 1px solid #1e1e2d;
+            border-radius: 6px;
+            padding: 10px 5px;
+            text-align: center;
+        }
+
+        .data-box label {
+            display: block;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .data-box .value {
+            font-family: monospace;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        button.btn-ctrl {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: opacity 0.2s;
+        }
+
+        .btn-toggle { background-color: var(--accent-yellow); color: #000; }
+        .btn-speed { background-color: #3b3b54; color: var(--accent-yellow); border: 1px solid var(--accent-yellow); max-width: 110px; }
+        .btn-reset { background-color: #2b2b3d; color: #fff; max-width: 90px; }
+        button.btn-ctrl:hover { opacity: 0.88; }
+
+        @media (max-width: 900px) {
+            .top-bar { flex-direction: column; gap: 10px; }
+            .main-container { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ÜST BAR -->
+    <div class="top-bar">
+        <div class="lang-selector">
+            <span class="lang-label">🌐 <span id="lbl-sprache">Sprache:</span></span>
+            <div class="lang-buttons">
+                <button class="lang-btn" id="btn-tr" onclick="changeLanguage('tr')">TR</button>
+                <button class="lang-btn" id="btn-en" onclick="changeLanguage('en')">EN</button>
+                <button class="lang-btn active" id="btn-de" onclick="changeLanguage('de')">DE</button>
+            </div>
+        </div>
+
+        <div class="top-bar-right">
+            <div class="visitor-counter">
+                👁️ <span id="lbl-besucher">Besucher:</span> <b>1.249</b>
+            </div>
+            <a href="mailto:tasturan@gmail.com" class="email-link">
+                ✉️ tasturan@gmail.com
+            </a>
+        </div>
+    </div>
+
+    <!-- SİMÜLASYON BAŞLIĞI -->
+    <div class="header-title">
+        <h1 id="ui-title">☀️ Strahlung und Gleichgewichtstemperatur</h1>
+        <p class="subtitle" id="ui-subtitle">Nach dem Wärmeaustausch erreicht das System eine einheitliche Temperatur.</p>
+    </div>
+
+    <!-- ANA PANEL -->
+    <div class="main-container">
+        <!-- SOL PANEL -->
+        <div class="panel">
+            <div class="input-group">
+                <div class="input-box">
+                    <label><span id="ui-label-mA">Masse A</span>: <b id="valMA" style="color:var(--accent-red)">2 kg</b></label>
+                    <input type="range" id="sliderMA" min="1" max="10" step="1" value="2">
+                </div>
+                <div class="input-box">
+                    <label><span id="ui-label-mB">Masse B</span>: <b id="valMB" style="color:var(--accent-light-blue)">4 kg</b></label>
+                    <input type="range" id="sliderMB" min="1" max="10" step="1" value="4">
+                </div>
+                <div class="input-box">
+                    <label><span id="ui-label-TA">Anfangstemperatur A</span>: <b id="valTA" style="color:var(--accent-red)">350 K</b></label>
+                    <input type="range" id="sliderTA" min="100" max="500" step="10" value="350">
+                </div>
+                <div class="input-box">
+                    <label><span id="ui-label-TB">Anfangstemperatur B</span>: <b id="valTB" style="color:var(--accent-light-blue)">50 K</b></label>
+                    <input type="range" id="sliderTB" min="100" max="300" step="10" value="50">
+                </div>
+            </div>
+
+            <canvas id="radiationCanvas" width="550" height="220"></canvas>
+            <canvas id="scaleCanvas" width="550" height="90"></canvas>
+
+            <div class="process-box">
+                <div class="process-title">
+                    <span id="ui-proc-title">📡 Live-Prozessanalyse:</span>
+                    <span id="processStatus" class="process-status">Bereit</span>
+                </div>
+                <div id="processDescription">
+                    Wärmeübertragung erfolgt vom wärmeren zum kälteren Körper.
+                </div>
+            </div>
+
+            <div class="controls">
+                <button class="btn-ctrl btn-toggle" id="btnToggle">Strahlung Start / Stopp</button>
+                <button class="btn-ctrl btn-speed" id="btnSpeed">⚡ Tempo: 1x</button>
+                <button class="btn-ctrl btn-reset" id="btnReset">Zurücksetzen</button>
+            </div>
+        </div>
+
+        <!-- SAĞ PANEL -->
+        <div class="panel">
+            <h2 style="margin-top:0; font-size:1.15rem; color:var(--accent-yellow);" id="ui-right-title">📊 Live-Temperatur & Wärmekapazität</h2>
+            
+            <div class="metrics-wrapper">
+                <div class="metric-card hot">
+                    <h3 style="color: var(--accent-red);">
+                        <span id="ui-objA-name">🔥 Körper A</span>
+                        <small style="font-size:0.75rem; color:var(--text-muted);" id="labelMassA">m = 2 kg</small>
+                    </h3>
+                    <div class="metric-grid">
+                        <div class="data-box">
+                            <label id="ui-lbl-TA">Temperatur</label>
+                            <span class="value" id="tA" style="color: var(--accent-red);">350.0 K</span>
+                        </div>
+                        <div class="data-box">
+                            <label id="ui-lbl-CA">Wärmekapazität</label>
+                            <span class="value" id="cA" style="color: var(--accent-green);">8.00 <small>kJ/K</small></span>
+                        </div>
+                        <div class="data-box">
+                            <label id="ui-lbl-duA">Abgegebene Wärme</label>
+                            <span class="value" id="duA" style="color: var(--accent-red);">0.0 <small>kJ</small></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="metric-card cold">
+                    <h3 style="color: var(--accent-light-blue);">
+                        <span id="ui-objB-name">❄️ Körper B</span>
+                        <small style="font-size:0.75rem; color:var(--text-muted);" id="labelMassB">m = 4 kg</small>
+                    </h3>
+                    <div class="metric-grid">
+                        <div class="data-box">
+                            <label id="ui-lbl-TB">Temperatur</label>
+                            <span class="value" id="tB" style="color: var(--accent-light-blue);">50.0 K</span>
+                        </div>
+                        <div class="data-box">
+                            <label id="ui-lbl-CB">Wärmekapazität</label>
+                            <span class="value" id="cB" style="color: var(--accent-green);">16.00 <small>kJ/K</small></span>
+                        </div>
+                        <div class="data-box">
+                            <label id="ui-lbl-duB">Aufgenommene Wärme</label>
+                            <span class="value" id="duB" style="color: var(--accent-light-blue);">0.0 <small>kJ</small></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="data-box" style="padding:15px; border-color:var(--accent-yellow);">
+                    <label style="font-size:0.85rem; color:var(--accent-yellow); font-weight:bold;" id="ui-lbl-Td">🎯 Ziel-Gleichgewichtstemperatur</label>
+                    <div class="value" id="tDengeVal" style="font-size:1.5rem; color:var(--accent-yellow); margin-top:4px;">-- K</div>
+                    <small style="color:var(--text-muted); font-size:0.72rem; display:block; margin-top:4px;" id="statusText">
+                        Wärmeübertragung läuft...
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentLang = 'de';
+
+        const i18n = {
+            tr: {
+                sprache: "Dil:",
+                besucher: "Ziyaretçi:",
+                title: "☀️ İzole Sistemde Işıma ve Denge Sıcaklığı",
+                subtitle: "Isı alışverişi bittiğinde cisimler tek bir sıcaklık değerinde buluşur.",
+                labelMA: "A Kütlesi",
+                labelMB: "B Kütlesi",
+                labelTA: "A Başlangıç Sıcaklığı",
+                labelTB: "B Başlangıç Sıcaklığı",
+                procTitle: "📡 Canlı Süreç Analizi:",
+                btnToggle: "Işımayı Başlat / Durdur",
+                btnSpeed: "⚡ Hız: ",
+                btnReset: "Sıfırla",
+                rightTitle: "📊 Canlı Sıcaklık ve Isı Sığası",
+                objA: "🔥 Cisim A",
+                objB: "❄️ Cisim B",
+                lblTempA: "Sıcaklık",
+                lblTempB: "Sıcaklık",
+                lblCapA: "Isı Sığası",
+                lblCapB: "Isı Sığası",
+                lblDUA: "Aktarılan Enerji",
+                lblDUB: "Alınan Enerji",
+                lblTd: "🎯 Hedef Denge Sıcaklığı",
+                statusReady: "Sistem Hazır",
+                statusBalanced: "Termal Denge Sağlandı",
+                statusPaused: "Duraklatıldı",
+                statusRunning: "Işıma Devam Ediyor",
+                statusBalancedText: "✅ TERMAL DENGE SAĞLANDI",
+                statusFlowText: "Isı akışı devam ediyor...",
+                scaleBalanced: "DENGE SICAKLIĞI: ",
+                scaleTarget: "Hedef Denge: "
+            },
+            en: {
+                sprache: "Language:",
+                besucher: "Visitors:",
+                title: "☀️ Radiation and Thermal Equilibrium",
+                subtitle: "When heat transfer completes, objects reach a uniform temperature.",
+                labelMA: "Mass A",
+                labelMB: "Mass B",
+                labelTA: "Initial Temperature A",
+                labelTB: "Initial Temperature B",
+                procTitle: "📡 Live Process Analysis:",
+                btnToggle: "Start / Pause Radiation",
+                btnSpeed: "⚡ Speed: ",
+                btnReset: "Reset",
+                rightTitle: "📊 Live Temperature & Heat Capacity",
+                objA: "🔥 Body A",
+                objB: "❄️ Body B",
+                lblTempA: "Temperature",
+                lblTempB: "Temperature",
+                lblCapA: "Heat Capacity",
+                lblCapB: "Heat Capacity",
+                lblDUA: "Transferred Energy",
+                lblDUB: "Received Energy",
+                lblTd: "🎯 Target Equilibrium Temperature",
+                statusReady: "System Ready",
+                statusBalanced: "Thermal Equilibrium Reached",
+                statusPaused: "Paused",
+                statusRunning: "Radiation Active",
+                statusBalancedText: "✅ THERMAL EQUILIBRIUM REACHED",
+                statusFlowText: "Heat transfer ongoing...",
+                scaleBalanced: "EQUILIBRIUM TEMP: ",
+                scaleTarget: "Target Equilibrium: "
+            },
+            de: {
+                sprache: "Sprache:",
+                besucher: "Besucher:",
+                title: "☀️ Strahlung und Gleichgewichtstemperatur",
+                subtitle: "Nach dem Wärmeaustausch erreicht das System eine einheitliche Temperatur.",
+                labelMA: "Masse A",
+                labelMB: "Masse B",
+                labelTA: "Anfangstemperatur A",
+                labelTB: "Anfangstemperatur B",
+                procTitle: "📡 Live-Prozessanalyse:",
+                btnToggle: "Strahlung Start / Stopp",
+                btnSpeed: "⚡ Tempo: ",
+                btnReset: "Zurücksetzen",
+                rightTitle: "📊 Live-Temperatur & Wärmekapazität",
+                objA: "🔥 Körper A",
+                objB: "❄️ Körper B",
+                lblTempA: "Temperatur",
+                lblTempB: "Temperatur",
+                lblCapA: "Wärmekapazität",
+                lblCapB: "Wärmekapazität",
+                lblDUA: "Abgegebene Wärme",
+                lblDUB: "Aufgenommene Wärme",
+                lblTd: "🎯 Ziel-Gleichgewichtstemperatur",
+                statusReady: "System Bereit",
+                statusBalanced: "Thermisches Gleichgewicht Erreicht",
+                statusPaused: "Pausiert",
+                statusRunning: "Strahlung Aktiv",
+                statusBalancedText: "✅ THERMISCHES GLEICHGEWICHT ERREICHT",
+                statusFlowText: "Wärmeübertragung läuft...",
+                scaleBalanced: "GLEICHGEWICHTSTEMPERATUR: ",
+                scaleTarget: "Ziel-Gleichgewicht: "
+            }
+        };
+
+        function changeLanguage(lang) {
+            currentLang = lang;
+            const t = i18n[lang];
+
+            document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`btn-${lang}`).classList.add('active');
+
+            document.getElementById('lbl-sprache').innerText = t.sprache;
+            document.getElementById('lbl-besucher').innerText = t.besucher;
+
+            document.getElementById('ui-title').innerText = t.title;
+            document.getElementById('ui-subtitle').innerText = t.subtitle;
+            document.getElementById('ui-label-mA').innerText = t.labelMA;
+            document.getElementById('ui-label-mB').innerText = t.labelMB;
+            document.getElementById('ui-label-TA').innerText = t.labelTA;
+            document.getElementById('ui-label-TB').innerText = t.labelTB;
+            document.getElementById('ui-proc-title').innerText = t.procTitle;
+            document.getElementById('btnToggle').innerText = t.btnToggle;
+            document.getElementById('btnSpeed').innerText = `${t.btnSpeed}${simSpeed}x`;
+            document.getElementById('btnReset').innerText = t.btnReset;
+            document.getElementById('ui-right-title').innerText = t.rightTitle;
+            document.getElementById('ui-objA-name').innerText = t.objA;
+            document.getElementById('ui-objB-name').innerText = t.objB;
+            document.getElementById('ui-lbl-TA').innerText = t.lblTempA;
+            document.getElementById('ui-lbl-TB').innerText = t.lblTempB;
+            document.getElementById('ui-lbl-CA').innerText = t.lblCapA;
+            document.getElementById('ui-lbl-CB').innerText = t.lblCapB;
+            document.getElementById('ui-lbl-duA').innerText = t.lblDUA;
+            document.getElementById('ui-lbl-duB').innerText = t.lblDUB;
+            document.getElementById('ui-lbl-Td').innerText = t.lblTd;
+
+            document.documentElement.lang = lang;
+            updateMetrics();
+        }
+
+        // --- SİMÜLASYON MOTORU ---
+        const radCanvas = document.getElementById('radiationCanvas');
+        const radCtx = radCanvas.getContext('2d');
+        const scaleCanvas = document.getElementById('scaleCanvas');
+        const scaleCtx = scaleCanvas.getContext('2d');
+
+        let objA = { x: 100, y: 110, r: 45, T: 350, initT: 350, mA: 2, unitC: 4.0, totalDU: 0 };
+        let objB = { x: 450, y: 110, r: 55, T: 50,  initT: 50,  mB: 4, unitC: 4.0, totalDU: 0 };
+
+        let isRunning = false;
+        let simSpeed = 1;
+        let photons = [];
+
+        function getHeatCapacity(mass, unitC) {
+            return mass * unitC;
+        }
+
+        function emitPhoton() {
+            if (Math.abs(objA.T - objB.T) < 0.1) return;
+
+            const source = objA.T > objB.T ? objA : objB;
+            const target = objA.T > objB.T ? objB : objA;
+
+            const baseRef = Math.max(objA.initT, objB.initT, 300);
+            const rate = Math.min((Math.pow(source.T, 4) - Math.pow(target.T, 4)) / Math.pow(baseRef, 4), 1.0);
+            
+            if (Math.random() < rate * 0.4 * simSpeed) {
+                const angle = Math.atan2(target.y - source.y, target.x - source.x) + (Math.random() - 0.5) * 0.5;
+                photons.push({
+                    x: source.x + source.r * Math.cos(angle),
+                    y: source.y + source.r * Math.sin(angle),
+                    vx: Math.cos(angle) * (5 + simSpeed),
+                    vy: Math.sin(angle) * (5 + simSpeed),
+                    energy: 1.5 * simSpeed,
+                    phase: Math.random() * Math.PI * 2,
+                    target: target === objB ? 'B' : 'A'
+                });
+            }
+        }
+
+        function getTempColor(T) {
+            const minT = Math.min(objA.initT, objB.initT, 0);
+            const maxT = Math.max(objA.initT, objB.initT, 500);
+            const norm = Math.min(Math.max((T - minT) / (maxT - minT || 1), 0), 1);
+            
+            const r = Math.floor(40 + 215 * norm);
+            const g = Math.floor(60 * (1 - norm) + 20 * norm);
+            const b = Math.floor(230 * (1 - norm));
+            return { r, g, b, str: `rgb(${r},${g},${b})` };
+        }
+
+        /* DİNAMİK PARANTEZSİZ SÜREÇ METİNLERİ */
+        function updateProcessText() {
+            const statusEl = document.getElementById('processStatus');
+            const descEl = document.getElementById('processDescription');
+            const t = i18n[currentLang];
+
+            const deltaT = Math.abs(objA.T - objB.T);
+            const initialDeltaT = Math.abs(objA.initT - objB.initT);
+
+            const hotObj = objA.T >= objB.T ? 'A' : 'B';
+            const coldObj = objA.T >= objB.T ? 'B' : 'A';
+
+            if (!isRunning && deltaT === initialDeltaT) {
+                statusEl.innerText = t.statusReady;
+                statusEl.style.color = "var(--accent-yellow)";
+                if (currentLang === 'tr') {
+                    descEl.innerHTML = `Sıcak cisim <b>${hotObj}</b> ile soğuk cisim <b>${coldObj}</b> arasında ${deltaT.toFixed(1)} K sıcaklık farkı bulunuyor.`;
+                } else if (currentLang === 'en') {
+                    descEl.innerHTML = `Initial temperature difference between hot body <b>${hotObj}</b> and cold body <b>${coldObj}</b> is ${deltaT.toFixed(1)} K.`;
+                } else {
+                    descEl.innerHTML = `Der erste Temperaturunterschied zwischen dem heißen Körper <b>${hotObj}</b> und dem kalten Körper <b>${coldObj}</b> beträgt ${deltaT.toFixed(1)} K.`;
+                }
+            } else if (deltaT <= 0.2) {
+                statusEl.innerText = t.statusBalanced;
+                statusEl.style.color = "var(--accent-green)";
+                if (currentLang === 'tr') {
+                    descEl.innerHTML = `✅ Sıcaklıklar ${objA.T.toFixed(1)} K seviyesinde eşitlendi. Net ışıma durdu ve sistem termal dengeye ulaştı.`;
+                } else if (currentLang === 'en') {
+                    descEl.innerHTML = `✅ Temperatures equalized at ${objA.T.toFixed(1)} K. Net radiation stopped and thermal equilibrium reached.`;
+                } else {
+                    descEl.innerHTML = `✅ Die Temperaturen haben sich bei ${objA.T.toFixed(1)} K angeglichen. Die Nettostrahlung ist gestoppt.`;
+                }
+            } else if (!isRunning) {
+                statusEl.innerText = t.statusPaused;
+                statusEl.style.color = "var(--accent-light-blue)";
+                descEl.innerHTML = `Mevcut sıcaklık farkı: ${deltaT.toFixed(1)} K.`;
+            } else {
+                statusEl.innerText = `${t.statusRunning} - ${simSpeed}x`;
+                statusEl.style.color = "var(--accent-red)";
+                descEl.innerHTML = `Isı transferi: <b>${hotObj}</b> $\\rightarrow$ <b>${coldObj}</b> | Sıcaklık farkı: ${deltaT.toFixed(1)} K`;
+            }
+        }
+
+        function updateMetrics() {
+            const CA = getHeatCapacity(objA.mA, objA.unitC);
+            const CB = getHeatCapacity(objB.mB, objB.unitC);
+            const T_denge = (CA * objA.initT + CB * objB.initT) / (CA + CB);
+
+            document.getElementById('tA').innerText = objA.T.toFixed(1) + ' K';
+            document.getElementById('cA').innerHTML = CA.toFixed(2) + ' <small>kJ/K</small>';
+            document.getElementById('duA').innerHTML = (objA.totalDU > 0 ? '+' : '') + objA.totalDU.toFixed(1) + ' <small>kJ</small>';
+
+            document.getElementById('tB').innerText = objB.T.toFixed(1) + ' K';
+            document.getElementById('cB').innerHTML = CB.toFixed(2) + ' <small>kJ/K</small>';
+            document.getElementById('duB').innerHTML = (objB.totalDU > 0 ? '+' : '') + objB.totalDU.toFixed(1) + ' <small>kJ</small>';
+
+            document.getElementById('tDengeVal').innerText = T_denge.toFixed(1) + ' K';
+
+            const diff = Math.abs(objA.T - objB.T);
+            const t = i18n[currentLang];
+            if (diff < 0.2) {
+                document.getElementById('statusText').innerText = t.statusBalancedText;
+                document.getElementById('statusText').style.color = "var(--accent-green)";
+            } else {
+                document.getElementById('statusText').innerText = t.statusFlowText;
+                document.getElementById('statusText').style.color = "var(--text-muted)";
+            }
+
+            updateProcessText();
+            return { CA, CB, T_denge };
+        }
+
+        function update() {
+            if (!isRunning) return;
+
+            emitPhoton();
+
+            for (let i = photons.length - 1; i >= 0; i--) {
+                let p = photons[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.phase += 0.2;
+
+                const targetObj = p.target === 'B' ? objB : objA;
+                const dist = Math.hypot(p.x - targetObj.x, p.y - targetObj.y);
+
+                if (dist <= targetObj.r) {
+                    const CA = getHeatCapacity(objA.mA, objA.unitC);
+                    const CB = getHeatCapacity(objB.mB, objB.unitC);
+
+                    if (objA.T > objB.T) {
+                        objA.T -= p.energy / CA;
+                        objB.T += p.energy / CB;
+                        objA.totalDU -= p.energy;
+                        objB.totalDU += p.energy;
+                    } else if (objB.T > objA.T) {
+                        objB.T -= p.energy / CB;
+                        objA.T += p.energy / CA;
+                        objB.totalDU += p.energy;
+                        objA.totalDU -= p.energy;
+                    }
+
+                    photons.splice(i, 1);
+                    updateMetrics();
+                    continue;
+                }
+
+                if (p.x < 0 || p.x > radCanvas.width || p.y < 0 || p.y > radCanvas.height) {
+                    photons.splice(i, 1);
+                }
+            }
+
+            const CA = getHeatCapacity(objA.mA, objA.unitC);
+            const CB = getHeatCapacity(objB.mB, objB.unitC);
+            const targetFinalT = (CA * objA.initT + CB * objB.initT) / (CA + CB);
+
+            if (Math.abs(objA.T - targetFinalT) <= 0.2) {
+                objA.T = targetFinalT;
+                objB.T = targetFinalT;
+                isRunning = false;
+                photons = [];
+                updateMetrics();
+            }
+        }
+
+        function drawRadiation() {
+            radCtx.clearRect(0, 0, radCanvas.width, radCanvas.height);
+
+            radCtx.strokeStyle = '#1e1e2d';
+            radCtx.lineWidth = 2;
+            radCtx.strokeRect(10, 10, radCanvas.width - 20, radCanvas.height - 20);
+
+            const colorA = getTempColor(objA.T);
+            radCtx.fillStyle = colorA.str;
+            radCtx.shadowBlur = 15;
+            radCtx.shadowColor = colorA.str;
+            radCtx.beginPath();
+            radCtx.arc(objA.x, objA.y, objA.r, 0, Math.PI * 2);
+            radCtx.fill();
+
+            const colorB = getTempColor(objB.T);
+            radCtx.fillStyle = colorB.str;
+            radCtx.shadowColor = colorB.str;
+            radCtx.beginPath();
+            radCtx.arc(objB.x, objB.y, objB.r, 0, Math.PI * 2);
+            radCtx.fill();
+
+            radCtx.shadowBlur = 0;
+
+            photons.forEach(p => {
+                radCtx.strokeStyle = '#fcc419';
+                radCtx.lineWidth = 2;
+                radCtx.beginPath();
+                for (let j = 0; j < 10; j++) {
+                    const wx = p.x - j * (p.vx / 2);
+                    const wy = p.y - j * (p.vy / 2) + Math.sin(p.phase - j * 0.5) * 4;
+                    if (j === 0) radCtx.moveTo(wx, wy);
+                    else radCtx.lineTo(wx, wy);
+                }
+                radCtx.stroke();
+            });
+
+            radCtx.fillStyle = '#fff';
+            radCtx.font = 'bold 13px sans-serif';
+            radCtx.fillText("A", objA.x - 5, objA.y + 4);
+            radCtx.fillText("B", objB.x - 5, objB.y + 4);
+        }
+
+        function drawScale(metrics) {
+            scaleCtx.clearRect(0, 0, scaleCanvas.width, scaleCanvas.height);
+
+            const startX = 60;
+            const endX = scaleCanvas.width - 60;
+            const lineY = 40;
+
+            const minT = Math.min(objA.initT, objB.initT, 0);
+            const maxT = Math.max(objA.initT, objB.initT, 500);
+            const range = maxT - minT || 1;
+
+            scaleCtx.strokeStyle = '#2c2c3e';
+            scaleCtx.lineWidth = 4;
+            scaleCtx.beginPath();
+            scaleCtx.moveTo(startX, lineY);
+            scaleCtx.lineTo(endX, lineY);
+            scaleCtx.stroke();
+
+            const xA = startX + ((objA.T - minT) / range) * (endX - startX);
+            const xB = startX + ((objB.T - minT) / range) * (endX - startX);
+            const xTd = startX + ((metrics.T_denge - minT) / range) * (endX - startX);
+
+            const isBalanced = Math.abs(objA.T - objB.T) <= 0.2;
+            const t = i18n[currentLang];
+
+            if (!isBalanced) {
+                scaleCtx.fillStyle = '#ff6b6b';
+                scaleCtx.beginPath();
+                scaleCtx.arc(xA, lineY, 6, 0, Math.PI * 2);
+                scaleCtx.fill();
+                scaleCtx.font = '11px sans-serif';
+                scaleCtx.fillText(`A: ${objA.T.toFixed(0)} K`, Math.min(Math.max(xA - 15, 10), scaleCanvas.width - 50), lineY - 10);
+
+                scaleCtx.fillStyle = '#4dabf7';
+                scaleCtx.beginPath();
+                scaleCtx.arc(xB, lineY, 6, 0, Math.PI * 2);
+                scaleCtx.fill();
+                scaleCtx.fillText(`B: ${objB.T.toFixed(0)} K`, Math.min(Math.max(xB - 15, 10), scaleCanvas.width - 50), lineY - 10);
+
+                scaleCtx.strokeStyle = '#fcc419';
+                scaleCtx.lineWidth = 2;
+                scaleCtx.setLineDash([4, 4]);
+                scaleCtx.beginPath();
+                scaleCtx.moveTo(xTd, lineY - 12);
+                scaleCtx.lineTo(xTd, lineY + 12);
+                scaleCtx.stroke();
+                scaleCtx.setLineDash([]);
+
+                scaleCtx.fillStyle = '#fcc419';
+                scaleCtx.fillText(`${t.scaleTarget}${metrics.T_denge.toFixed(1)} K`, Math.min(Math.max(xTd - 35, 10), scaleCanvas.width - 100), lineY + 26);
+            } else {
+                scaleCtx.fillStyle = '#51cf66';
+                scaleCtx.beginPath();
+                scaleCtx.arc(xTd, lineY, 8, 0, Math.PI * 2);
+                scaleCtx.fill();
+
+                scaleCtx.fillStyle = '#51cf66';
+                scaleCtx.font = 'bold 12px sans-serif';
+                scaleCtx.fillText(`${t.scaleBalanced}${objA.T.toFixed(1)} K`, Math.min(Math.max(xTd - 100, 10), scaleCanvas.width - 230), lineY - 14);
+            }
+        }
+
+        function resetSimulation() {
+            isRunning = false;
+            objA.T = objA.initT;
+            objB.T = objB.initT;
+            objA.totalDU = 0;
+            objB.totalDU = 0;
+            photons = [];
+            updateMetrics();
+        }
+
+        function loop() {
+            update();
+            const metrics = updateMetrics();
+            drawRadiation();
+            drawScale(metrics);
+            requestAnimationFrame(loop);
+        }
+
+        document.getElementById('sliderMA').addEventListener('input', (e) => {
+            objA.mA = parseInt(e.target.value);
+            document.getElementById('valMA').innerText = objA.mA + ' kg';
+            document.getElementById('labelMassA').innerText = 'm = ' + objA.mA + ' kg';
+            resetSimulation();
+        });
+
+        document.getElementById('sliderMB').addEventListener('input', (e) => {
+            objB.mB = parseInt(e.target.value);
+            document.getElementById('valMB').innerText = objB.mB + ' kg';
+            document.getElementById('labelMassB').innerText = 'm = ' + objB.mB + ' kg';
+            resetSimulation();
+        });
+
+        document.getElementById('sliderTA').addEventListener('input', (e) => {
+            objA.initT = parseInt(e.target.value);
+            document.getElementById('valTA').innerText = objA.initT + ' K';
+            resetSimulation();
+        });
+
+        document.getElementById('sliderTB').addEventListener('input', (e) => {
+            objB.initT = parseInt(e.target.value);
+            document.getElementById('valTB').innerText = objB.initT + ' K';
+            resetSimulation();
+        });
+
+        document.getElementById('btnToggle').addEventListener('click', () => {
+            isRunning = !isRunning;
+            updateMetrics();
+        });
+
+        document.getElementById('btnSpeed').addEventListener('click', () => {
+            if (simSpeed === 1) simSpeed = 2;
+            else if (simSpeed === 2) simSpeed = 5;
+            else simSpeed = 1;
+            document.getElementById('btnSpeed').innerText = `${i18n[currentLang].btnSpeed}${simSpeed}x`;
+            updateMetrics();
+        });
+
+        document.getElementById('btnReset').addEventListener('click', resetSimulation);
+
+        updateMetrics();
+        loop();
+    </script>
+</body>
+</html>
