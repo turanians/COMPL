@@ -29,6 +29,14 @@
     .btn-secondary:hover { background: #2e3456; }
 
     .info-box { background: #181a29; border-left: 3px solid #64ffda; padding: 10px 12px; font-size: 0.8rem; color: #8892b0; line-height: 1.4; border-radius: 0 6px 6px 0; }
+
+    /* Galeri Alanı Stilleri */
+    .gallery-section { max-width: 1100px; width: 100%; margin-top: 40px; padding-top: 20px; border-top: 1px solid #232741; }
+    .gallery-title { font-size: 1.2rem; color: #64ffda; margin-bottom: 15px; text-align: center; }
+    .gallery-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; justify-items: center; }
+    .gallery-item { background: #11121d; border: 1px solid #232741; border-radius: 8px; overflow: hidden; transition: transform 0.2s ease, box-shadow 0.2s ease; width: 100%; }
+    .gallery-item:hover { transform: translateY(-4px); box-shadow: 0 6px 15px rgba(100, 255, 218, 0.15); }
+    .gallery-item img { width: 100%; height: 180px; object-fit: cover; display: block; }
   </style>
 </head>
 <body>
@@ -79,6 +87,28 @@
 
       <div class="info-box">
         💡 <b>Kaos İpucu:</b> Başlangıç açılarını değiştirmek veya hafifçe kütlelerle oynamak, sarkacın çizdiği rotayı tamamen değiştirir.
+      </div>
+    </div>
+  </div>
+
+  <!-- Sayfanın Altındaki Fotoğraf Galerisi -->
+  <div class="gallery-section">
+    <h2 class="gallery-title">Örnek Kaotik Desenler & Görseller</h2>
+    <div class="gallery-grid">
+      <div class="gallery-item">
+        <img src="Ekran görüntüsü 2026-08-01 160156.png" alt="Desen 1">
+      </div>
+      <div class="gallery-item">
+        <img src="Ekran görüntüsü 2026-08-01 163308.png" alt="Desen 2">
+      </div>
+      <div class="gallery-item">
+        <img src="Ekran görüntüsü 2026-08-01 185148.png" alt="Desen 3">
+      </div>
+      <div class="gallery-item">
+        <img src="Ekran görüntüsü 2026-08-01 185602.jpg" alt="Desen 4">
+      </div>
+      <div class="gallery-item">
+        <img src="Ekran görüntüsü 2026-08-01 185711.png" alt="Desen 5">
       </div>
     </div>
   </div>
