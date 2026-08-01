@@ -16,8 +16,100 @@
             --border-color: #2c2c3e;
         }
 
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-main); color: var(--text-main); margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
-        header { text-align: center; padding: 60px 20px 40px 20px; max-width: 800px; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: var(--bg-main); 
+            color: var(--text-main); 
+            margin: 0; 
+            padding: 0; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            min-height: 100vh; 
+        }
+
+        /* Üst Bar */
+        .top-bar {
+            width: 100%;
+            background-color: #0d0d14;
+            border-bottom: 1px solid var(--border-color);
+            padding: 8px 20px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-family: monospace;
+        }
+
+        .top-bar-left, .top-bar-center, .top-bar-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .lang-options {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .lang-btn {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s ease;
+        }
+
+        .lang-btn:hover {
+            border-color: var(--accent-blue);
+            color: var(--text-main);
+        }
+
+        .lang-btn.active {
+            color: var(--bg-main);
+            background-color: var(--accent-blue);
+            border-color: var(--accent-blue);
+            font-weight: bold;
+        }
+
+        .contact-mail {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .contact-mail:hover {
+            color: var(--accent-blue);
+        }
+
+        .counter-badge {
+            background: rgba(81, 207, 102, 0.1);
+            color: var(--accent-green);
+            padding: 3px 8px;
+            border-radius: 4px;
+            border: 1px solid rgba(81, 207, 102, 0.2);
+        }
+
+        @media (max-width: 600px) {
+            .top-bar {
+                flex-direction: column;
+                gap: 8px;
+                padding: 10px;
+                text-align: center;
+            }
+        }
+
+        header { text-align: center; padding: 40px 20px 30px 20px; max-width: 800px; }
         header h1 { font-size: 3rem; margin: 0; background: linear-gradient(45deg, var(--accent-blue), #91a7ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 2px; }
         header p { font-size: 1.2rem; color: var(--text-muted); margin-top: 15px; font-style: italic; }
         .stats-bar { display: flex; gap: 20px; justify-content: center; margin-top: 20px; font-family: monospace; font-size: 0.9rem; color: var(--accent-green); }
@@ -39,11 +131,33 @@
 </head>
 <body>
 
+    <!-- Üst Bar -->
+    <div class="top-bar">
+        <div class="top-bar-left">
+            <span id="lbl-lang">🌐 Dil:</span>
+            <div class="lang-options">
+                <button class="lang-btn active" onclick="setLanguage('tr')">TR</button>
+                <button class="lang-btn" onclick="setLanguage('en')">EN</button>
+                <button class="lang-btn" onclick="setLanguage('de')">DE</button>
+            </div>
+        </div>
+
+        <div class="top-bar-center">
+            <a href="mailto:tasturan@gmail.com" class="contact-mail">
+                ✉️ tasturan@gmail.com
+            </a>
+        </div>
+
+        <div class="top-bar-right">
+            <span class="counter-badge"><span id="lbl-visitor">👁️ Ziyaretçi:</span> <strong id="visitorCount">1,249</strong></span>
+        </div>
+    </div>
+
     <header>
         <h1>Turan's COMPL</h1>
         <p>"Imagination is more important than knowledge."</p>
         <div class="stats-bar">
-            <span>[ SYSTEM: ACTIVE ]</span>
+            <span id="sys-status">[ SYSTEM: ACTIVE ]</span>
             <span>[ MODULES: 7 ]</span>
             <span>[ CORE: JS_CANVAS / THREE.JS ]</span>
         </div>
@@ -54,88 +168,292 @@
 
             <!-- KLASİK MEKANİK -->
             <div class="card">
-                <h2>Klasik Mekanik <span>⚙️</span></h2>
-                <p>Makroskobik cisimlerin hareket yasaları, kuvvet, enerji ve dinamik sistemler.</p>
+                <h2><span id="cat-1-title">Klasik Mekanik</span> <span>⚙️</span></h2>
+                <p id="cat-1-desc">Makroskobik cisimlerin hareket yasaları, kuvvet, enerji ve dinamik sistemler.</p>
                 <div class="sim-list">
-                    <div class="sim-item"><span>2D Esnek Çarpışma</span><a href="mekanik/esnek-carpisma.html" class="btn-launch">Başlat 🚀</a></div>
-                    <div class="sim-item"><span>2D Impulse Momentum</span><a href="mekanik/esnekolmayan-carpisma.html" class="btn-launch">Başlat 🚀</a></div>
-                    <div class="sim-item"><span>2D Yay Sarkacı</span><a href="mekanik/yaysarkaci.html" class="btn-launch">Başlat 🚀</a></div>
-                    <div class="sim-item"><span>Basit Sarkaç</span><a href="mekanik/basit-sarkac.html" class="btn-launch">Başlat 🚀</a></div>
-                    <div class="sim-item"><span>Kaotik Çift Sarkaç</span><a href="mekanik/kaotik-sarkac.html" class="btn-launch">Başlat 🚀</a></div>
+                    <div class="sim-item"><span id="sim-1">2D Esnek Çarpışma</span><a href="mekanik/esnek-carpisma.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
+                    <div class="sim-item"><span id="sim-2">2D Impulse Momentum</span><a href="mekanik/esnekolmayan-carpisma.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
+                    <div class="sim-item"><span id="sim-3">2D Yay Sarkacı</span><a href="mekanik/yaysarkaci.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
+                    <div class="sim-item"><span id="sim-4">Basit Sarkaç</span><a href="mekanik/basit-sarkac.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
+                    <div class="sim-item"><span id="sim-5">Kaotik Çift Sarkaç</span><a href="mekanik/kaotik-sarkac.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
                 </div>
             </div>
 
             <!-- KÜTLEÇEKİM VE ASTRONOMİ -->
             <div class="card">
-                <h2>Kütleçekim & Uzay <span>🌌</span></h2>
-                <p>Gök cisimlerinin çekim kuvvetleri, yörünge mekaniği ve çekim alanları.</p>
+                <h2><span id="cat-2-title">Kütleçekim & Uzay</span> <span>🌌</span></h2>
+                <p id="cat-2-desc">Gök cisimlerinin çekim kuvvetleri, yörünge mekaniği ve çekim alanları.</p>
                 <div class="sim-list">
-                    <div class="sim-item"><span>Kütleçekim Sandbox</span><a href="kutlecekim/sandbox.html" class="btn-launch">Başlat 🚀</a></div>
-                    <div class="sim-item"><span>Kepler Yasaları</span><span class="status-locked">Yakında</span></div>
+                    <div class="sim-item"><span id="sim-6">Kütleçekim Sandbox</span><a href="kutlecekim/sandbox.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
+                    <div class="sim-item"><span id="sim-7">Kepler Yasaları</span><span class="status-locked">Yakında</span></div>
                 </div>
             </div>
 
             <!-- TERMODİNAMİK -->
             <div class="card">
-                <h2>Termodinamik <span>🔥</span></h2>
-                <p>Isı, iş, entropi ve parçacık topluluklarının istatistiksel mekaniği.</p>
+                <h2><span id="cat-3-title">Termodinamik</span> <span>🔥</span></h2>
+                <p id="cat-3-desc">Isı, iş, entropi ve parçacık topluluklarının istatistiksel mekaniği.</p>
                 <div class="sim-list">
-                    <div class="sim-item"><span>Maxwell-Boltzmann Dağılımı</span><span class="status-locked">Yakında</span></div>
+                    <div class="sim-item"><span id="sim-8">Maxwell-Boltzmann Dağılımı</span><span class="status-locked">Yakında</span></div>
                 </div>
             </div>
 
             <!-- ELEKTROMANYETİZMA -->
             <div class="card">
-                <h2>Elektromanyetizma <span>⚡</span></h2>
-                <p>Elektrik yükleri, devreler, manyetik alanlar ve indüksiyon akımları.</p>
+                <h2><span id="cat-4-title">Elektromanyetizma</span> <span>⚡</span></h2>
+                <p id="cat-4-desc">Elektrik yükleri, devreler, manyetik alanlar ve indüksiyon akımları.</p>
                 <div class="sim-list">
-                    <div class="sim-item"><span>Elektrik Devresi Simülasyonu</span><a href="elektro/devre.html" class="btn-launch">Başlat 🚀</a></div>
-                    <div class="sim-item"><span>Manyetik İndüksiyon (Faraday)</span><a href="elektro/induksiyon.html" class="btn-launch">Başlat 🚀</a></div>
-                    <div class="sim-item"><span>Dinamik Alan Çizgileri</span><span class="status-locked">Yakında</span></div>
+                    <div class="sim-item"><span id="sim-9">Elektrik Devresi Simülasyonu</span><a href="elektro/devre.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
+                    <div class="sim-item"><span id="sim-10">Manyetik İndüksiyon (Faraday)</span><a href="elektro/induksiyon.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
+                    <div class="sim-item"><span id="sim-11">Dinamik Alan Çizgileri</span><span class="status-locked">Yakında</span></div>
                 </div>
             </div>
 
             <!-- OPTİK VE DALGALAR -->
             <div class="card">
-                <h2>Optik ve Dalgalar <span>🌊</span></h2>
-                <p>Işığın kırılması, yansıması, girişim, kırınım, gölge ve dalga olguları.</p>
+                <h2><span id="cat-5-title">Optik ve Dalgalar</span> <span>🌊</span></h2>
+                <p id="cat-5-desc">Işığın kırılması, yansıması, girişim, kırınım, gölge ve dalga olguları.</p>
                 <div class="sim-list">
-                    <div class="sim-item"><span>Çift Yarıkta Girişim</span><a href="optik/young.html" class="btn-launch">Başlat 🚀</a></div>
-                    <div class="sim-item"><span>Tek Yarıkta Girişim</span><a href="optik/tek.html" class="btn-launch">Başlat 🚀</a></div>
-                    <div class="sim-item"><span>Aydınlanma (2D)</span><a href="optik/aydinlanma.html" class="btn-launch">Başlat 🚀</a></div>
-                    <div class="sim-item"><span>3D Aydınlanma & Akı</span><a href="optik/aydinlanma-3d.html" class="btn-launch">Başlat 🚀</a></div>
-                    <div class="sim-item"><span>Görünür Derinlik</span><a href="optik/derinlik.html" class="btn-launch">Başlat 🚀</a></div>
-                    <div class="sim-item"><span>Gölge & Işık (3D Sphere)</span><a href="optik/golge.html" class="btn-launch">Başlat 🚀</a></div>
-                    <div class="sim-item"><span>Boyuna Dalga & Doppler</span><a href="optik/doppler.html" class="btn-launch">Başlat 🚀</a></div>
+                    <div class="sim-item"><span id="sim-12">Çift Yarıkta Girişim</span><a href="optik/young.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
+                    <div class="sim-item"><span id="sim-13">Tek Yarıkta Girişim</span><a href="optik/tek.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
+                    <div class="sim-item"><span id="sim-14">Aydınlanma (2D)</span><a href="optik/aydinlanma.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
+                    <div class="sim-item"><span id="sim-15">3D Aydınlanma & Akı</span><a href="optik/aydinlanma-3d.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
+                    <div class="sim-item"><span id="sim-16">Görünür Derinlik</span><a href="optik/derinlik.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
+                    <div class="sim-item"><span id="sim-17">Gölge & Işık (3D Küre)</span><a href="optik/golge.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
+                    <div class="sim-item"><span id="sim-18">Boyuna Dalga & Doppler</span><a href="optik/doppler.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
                 </div>
             </div>
 
             <!-- KATIHAL FİZİĞİ -->
             <div class="card">
-                <h2>Katıhal Fiziği <span>💎</span></h2>
-                <p>Kristal yapılar, enerji bant teorileri ve mikroskobik özellikler.</p>
+                <h2><span id="cat-6-title">Katıhal Fiziği</span> <span>💎</span></h2>
+                <p id="cat-6-desc">Kristal yapılar, enerji bant teorileri ve mikroskobik özellikler.</p>
                 <div class="sim-list">
-                    <div class="sim-item"><span>Bragg Kırınımı</span><span class="status-locked">Yakında</span></div>
+                    <div class="sim-item"><span id="sim-19">Bragg Kırınımı</span><span class="status-locked">Yakında</span></div>
                 </div>
             </div>
 
             <!-- ATOM & MOLEKÜLER -->
             <div class="card">
-                <h2>Atom & Moleküler <span>⚛️</span></h2>
-                <p>Atomun yapısı, elektron yörüngeleri, kuantum mekaniksel modeller ve dalga fonksiyonları.</p>
+                <h2><span id="cat-7-title">Atom & Moleküler</span> <span>⚛️</span></h2>
+                <p id="cat-7-desc">Atomun yapısı, elektron yörüngeleri, kuantum mekaniksel modeller ve dalga fonksiyonları.</p>
                 <div class="sim-list">
-                    <div class="sim-item"><span>Bohr Atom Modeli</span><span class="status-locked">Yakında</span></div>
-                    <div class="sim-item"><span>Modern Atom Teorisi (Orbital 3D)</span><a href="atom/modern-atom.html" class="btn-launch">Başlat 🚀</a></div>
-                    <div class="sim-item"><span>Schrödinger Dalga Paketi</span><a href="atom/schrodinger-wave.html" class="btn-launch">Başlat 🚀</a></div>
+                    <div class="sim-item"><span id="sim-20">Bohr Atom Modeli</span><span class="status-locked">Yakında</span></div>
+                    <div class="sim-item"><span id="sim-21">Modern Atom Teorisi (Orbital 3D)</span><a href="atom/modern-atom.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
+                    <div class="sim-item"><span id="sim-22">Schrödinger Dalga Paketi</span><a href="atom/schrodinger-wave.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
                 </div>
             </div>
 
-        </div> <!-- .physics-grid sonu -->
-    </div> <!-- .container sonu -->
+        </div>
+    </div>
 
     <footer>
         <p>&copy; 2026 Turan's COMPL - Computational Physics Laboratory</p>
     </footer>
 
+    <!-- ÇEVİRİ VE CANLI SAYAÇ MOTORU -->
+    <script>
+        const translations = {
+            tr: {
+                "lbl-lang": "🌐 Dil:",
+                "lbl-visitor": "👁️ Ziyaretçi:",
+                "sys-status": "[ SİSTEM: AKTİF ]",
+                "btn-launch": "Başlat",
+                "status-locked": "Yakında",
+                
+                "cat-1-title": "Klasik Mekanik",
+                "cat-1-desc": "Makroskobik cisimlerin hareket yasaları, kuvvet, enerji ve dinamik sistemler.",
+                "sim-1": "2D Esnek Çarpışma",
+                "sim-2": "2D Impulse Momentum",
+                "sim-3": "2D Yay Sarkacı",
+                "sim-4": "Basit Sarkaç",
+                "sim-5": "Kaotik Çift Sarkaç",
+
+                "cat-2-title": "Kütleçekim & Uzay",
+                "cat-2-desc": "Gök cisimlerinin çekim kuvvetleri, yörünge mekaniği ve çekim alanları.",
+                "sim-6": "Kütleçekim Sandbox",
+                "sim-7": "Kepler Yasaları",
+
+                "cat-3-title": "Termodinamik",
+                "cat-3-desc": "Isı, iş, entropi ve parçacık topluluklarının istatistiksel mekaniği.",
+                "sim-8": "Maxwell-Boltzmann Dağılımı",
+
+                "cat-4-title": "Elektromanyetizma",
+                "cat-4-desc": "Elektrik yükleri, devreler, manyetik alanlar ve indüksiyon akımları.",
+                "sim-9": "Elektrik Devresi Simülasyonu",
+                "sim-10": "Manyetik İndüksiyon (Faraday)",
+                "sim-11": "Dinamik Alan Çizgileri",
+
+                "cat-5-title": "Optik ve Dalgalar",
+                "cat-5-desc": "Işığın kırılması, yansıması, girişim, kırınım, gölge ve dalga olguları.",
+                "sim-12": "Çift Yarıkta Girişim",
+                "sim-13": "Tek Yarıkta Girişim",
+                "sim-14": "Aydınlanma (2D)",
+                "sim-15": "3D Aydınlanma & Akı",
+                "sim-16": "Görünür Derinlik",
+                "sim-17": "Gölge & Işık (3D Küre)",
+                "sim-18": "Boyuna Dalga & Doppler",
+
+                "cat-6-title": "Katıhal Fiziği",
+                "cat-6-desc": "Kristal yapılar, enerji bant teorileri ve mikroskobik özellikler.",
+                "sim-19": "Bragg Kırınımı",
+
+                "cat-7-title": "Atom & Moleküler",
+                "cat-7-desc": "Atomun yapısı, elektron yörüngeleri, kuantum mekaniksel modeller ve dalga fonksiyonları.",
+                "sim-20": "Bohr Atom Modeli",
+                "sim-21": "Modern Atom Teorisi (Orbital 3D)",
+                "sim-22": "Schrödinger Dalga Paketi"
+            },
+            en: {
+                "lbl-lang": "🌐 Language:",
+                "lbl-visitor": "👁️ Visitors:",
+                "sys-status": "[ SYSTEM: ACTIVE ]",
+                "btn-launch": "Launch",
+                "status-locked": "Coming Soon",
+
+                "cat-1-title": "Classical Mechanics",
+                "cat-1-desc": "Laws of motion of macroscopic bodies, force, energy, and dynamic systems.",
+                "sim-1": "2D Elastic Collision",
+                "sim-2": "2D Impulse Momentum",
+                "sim-3": "2D Spring Pendulum",
+                "sim-4": "Simple Pendulum",
+                "sim-5": "Chaotic Double Pendulum",
+
+                "cat-2-title": "Gravity & Space",
+                "cat-2-desc": "Gravitational forces, orbital mechanics, and gravitational fields of celestial bodies.",
+                "sim-6": "Gravity Sandbox",
+                "sim-7": "Kepler's Laws",
+
+                "cat-3-title": "Thermodynamics",
+                "cat-3-desc": "Heat, work, entropy, and statistical mechanics of particle ensembles.",
+                "sim-8": "Maxwell-Boltzmann Distribution",
+
+                "cat-4-title": "Electromagnetism",
+                "cat-4-desc": "Electric charges, circuits, magnetic fields, and induction currents.",
+                "sim-9": "Electric Circuit Simulation",
+                "sim-10": "Magnetic Induction (Faraday)",
+                "sim-11": "Dynamic Field Lines",
+
+                "cat-5-title": "Optics & Waves",
+                "cat-5-desc": "Refraction, reflection, interference, diffraction, shadows, and wave phenomena.",
+                "sim-12": "Double Slit Interference",
+                "sim-13": "Single Slit Diffraction",
+                "sim-14": "Illuminance (2D)",
+                "sim-15": "3D Illuminance & Flux",
+                "sim-16": "Apparent Depth",
+                "sim-17": "Light & Shadow (3D Sphere)",
+                "sim-18": "Longitudinal Wave & Doppler",
+
+                "cat-6-title": "Solid State Physics",
+                "cat-6-desc": "Crystal structures, energy band theories, and microscopic properties.",
+                "sim-19": "Bragg Diffraction",
+
+                "cat-7-title": "Atomic & Molecular",
+                "cat-7-desc": "Atomic structure, electron orbits, quantum mechanical models, and wave functions.",
+                "sim-20": "Bohr Atomic Model",
+                "sim-21": "Modern Atomic Theory (Orbital 3D)",
+                "sim-22": "Schrödinger Wave Packet"
+            },
+            de: {
+                "lbl-lang": "🌐 Sprache:",
+                "lbl-visitor": "👁️ Besucher:",
+                "sys-status": "[ SYSTEM: AKTIV ]",
+                "btn-launch": "Starten",
+                "status-locked": "Demnächst",
+
+                "cat-1-title": "Klassische Mechanik",
+                "cat-1-desc": "Bewegungsgesetze makroskopischer Körper, Kraft, Energie und dynamische Systeme.",
+                "sim-1": "2D Elastischer Stoß",
+                "sim-2": "2D Impuls-Momentum",
+                "sim-3": "2D Federpendel",
+                "sim-4": "Musterpendel",
+                "sim-5": "Chaotisches Doppelpendel",
+
+                "cat-2-title": "Gravitation & Weltraum",
+                "cat-2-desc": "Gravitationskräfte, Bahnmechanik und Gravitationsfelder von Himmelskörpern.",
+                "sim-6": "Gravitations-Sandbox",
+                "sim-7": "Keplersche Gesetze",
+
+                "cat-3-title": "Thermodynamik",
+                "cat-3-desc": "Wärme, Arbeit, Entropie und statistische Mechanik von Teilchenensembles.",
+                "sim-8": "Maxwell-Boltzmann-Verteilung",
+
+                "cat-4-title": "Elektromagnetismus",
+                "cat-4-desc": "Elektrische Ladungen, Schaltkreise, Magnetfelder und Induktionsströme.",
+                "sim-9": "Elektrische Schaltkreissimulation",
+                "sim-10": "Magnetische Induktion (Faraday)",
+                "sim-11": "Dynamische Feldlinien",
+
+                "cat-5-title": "Optik & Wellen",
+                "cat-5-desc": "Lichtbrechung, Reflexion, Interferenz, Beugung, Schatten und Wellenphänomene.",
+                "sim-12": "Doppelspaltinterferenz",
+                "sim-13": "Einzelspaltbeugung",
+                "sim-14": "Beleuchtungsstärke (2D)",
+                "sim-15": "3D Beleuchtungsstärke & Fluss",
+                "sim-16": "Scheinbare Tiefe",
+                "sim-17": "Schatten & Licht (3D-Kugel)",
+                "sim-18": "Längswelle & Doppler-Effekt",
+
+                "cat-6-title": "Festkörperphysik",
+                "cat-6-desc": "Kristallstrukturen, Energiebandtheorien und mikroskopische Eigenschaften.",
+                "sim-19": "Bragg-Beugung",
+
+                "cat-7-title": "Atom- & Molekularphysik",
+                "cat-7-desc": "Atomstruktur, Elektronenbahnen, quantenmechanische Modelle und Wellenfunktionen.",
+                "sim-20": "Bohrsches Atommodell",
+                "sim-21": "Moderne Atomtheorie (Orbital 3D)",
+                "sim-22": "Schrödinger-Wellenpaket"
+            }
+        };
+
+        function setLanguage(lang) {
+            document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
+            
+            // Tıklanan butonun stilini güncelle
+            const clickedBtn = Array.from(document.querySelectorAll('.lang-btn'))
+                                   .find(b => b.textContent.toLowerCase() === lang);
+            if(clickedBtn) clickedBtn.classList.add('active');
+
+            document.documentElement.lang = lang;
+
+            const dict = translations[lang];
+            for (let key in dict) {
+                const el = document.getElementById(key);
+                if (el) el.textContent = dict[key];
+            }
+
+            document.querySelectorAll('.btn-txt').forEach(btn => {
+                btn.textContent = dict["btn-launch"];
+            });
+
+            document.querySelectorAll('.status-locked').forEach(badge => {
+                badge.textContent = dict["status-locked"];
+            });
+
+            localStorage.setItem('selectedLang', lang);
+        }
+
+        // --- 1249 TABANLI CANLI CANLI SAYAÇ KODU ---
+        const BASE_VISITS = 1248; // İlk giren kişi 1249 görecek
+
+        fetch('https://api.counterapi.dev/v1/turan-compl-lab/visits/up')
+            .then(res => res.json())
+            .then(data => {
+                const totalCount = BASE_VISITS + (data.count || 1);
+                document.getElementById('visitorCount').textContent = totalCount.toLocaleString();
+            })
+            .catch(err => {
+                let count = localStorage.getItem('visitCount') || 1248;
+                count = parseInt(count) + 1;
+                localStorage.setItem('visitCount', count);
+                document.getElementById('visitorCount').textContent = count.toLocaleString();
+            });
+
+        // Kayıtlı dili yükle
+        const savedLang = localStorage.getItem('selectedLang');
+        if (savedLang && translations[savedLang]) {
+            setLanguage(savedLang);
+        }
+    </script>
 </body>
 </html>
