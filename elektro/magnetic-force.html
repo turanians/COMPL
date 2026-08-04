@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manyetik Kuvvet ve Dairesel Yörünge Simülasyonu</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
+        html, body { 
+            width: 100%;
+            min-height: 100vh;
+            background-color: #0f172a; 
+            color: #f8fafc; 
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        body {
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            padding: 20px 10px; 
+        }
+
+        h1 { font-size: 1.6rem; color: #38bdf8; margin-bottom: 5px; text-align: center; }
+        p.subtitle { font-size: 0.9rem; color: #94a3b8; margin-bottom: 20px; text-align: center; }
+        
+        .container { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 20px; 
+            justify-content: center; 
+            align-items: flex-start;
+            max-width: 1200px; 
+            width: 100%; 
+            margin: 0 auto;
+        }
+        
+        .canvas-card { 
+            position: relative; 
+            background-color: #020617; 
+            border-radius: 12px; 
+            border: 1px solid #1e293b; 
+            overflow: hidden; 
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5);
+            max-width: 100%;
+        }
+
+        canvas { 
+            display: block; 
+            max-width: 100%; 
+            height: auto; 
+            cursor: grab;
+        }
+        canvas:active { cursor: grabbing; }
+        
+        .panel { 
+            background-color: #1e293b; 
+            border-radius: 12px; 
+            padding: 20px; 
+            width: 360px; 
+            max-width: 100%;
+            display: flex; 
+            flex-direction: column; 
+            gap: 12px; 
+            border: 1px solid #334155; 
+        }
+        
+        .section-title { font-size: 0.9rem; font-weight: 600; color: #f1f5f9; border-bottom: 1px solid #334155; padding-bottom: 4px; }
+        
+        .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+        button { background-color: #3b82f6; color: white; border: none; padding: 8px 10px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s; font-size: 0.85rem; flex: 1; }
+        button:hover { background-color: #2563eb; }
+        button.active { ring: 2px solid #38bdf8; background-color: #1d4ed8; }
+        button.proton { background-color: #ef4444; } button.proton:hover { background-color: #dc2626; }
+        button.electron { background-color: #3b82f6; } button.electron:hover { background-color: #2563eb; }
+        button.neutron { background-color: #64748b; } button.neutron:hover { background-color: #475569; }
+        button.fire { background-color: #10b981; font-size: 0.95rem; padding: 9px; } button.fire:hover { background-color: #059669; }
+        button.reset { background-color: #475569; } button.reset:hover { background-color: #334155; }
+        button.zoom { background-color: #0ea5e9; font-size: 0.9rem; flex: 0.8; } button.zoom:hover { background-color: #0284c7; }
+        
+        .control-row { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: #cbd5e1; }
+        .control-row label { display: flex; justify-content: space-between; }
+        input[type=range] { width: 100%; accent-color: #38bdf8; cursor: pointer; }
+        
+        .data-card { background-color: #0f172a; border-radius: 8px; padding: 10px; font-family: monospace; font-size: 0.8rem; display: flex; flex-direction: column; gap: 6px; border: 1px solid #334155; }
+        .data-row { display: flex; justify-content: space-between; }
+        .data-val { color: #38bdf8; font-weight: bold; }
+        
+        .reasoning-box { background-color: #020617; border-left: 4px solid #38bdf8; padding: 10px; font-size: 0.8rem; color: #cbd5e1; border-radius: 0 6px 6px 0; display: flex; flex-direction: column; gap: 6px; }
+        .reasoning-title { color: #38bdf8; font-weight: bold; }
+        .reasoning-text { line-height: 1.4; font-size: 0.8rem; color: #94a3b8; }
+    </style>
+</head>
+<body>
+
+    <h1>Manyetik Kuvvet & Dairesel Yörünge Simülasyonu</h1>
+    <p class="subtitle">MEB Lise Fizik - Lorentz Kuvveti, Dairesel Hareket ve İş Yapmama İlkesi</p>
+
+    <div class="container">
+        <div class="canvas-card">
+            <canvas id="simCanvas" width="680" height="520"></canvas>
+        </div>
+
+        <div class="panel">
+            <div class="section-title">Görünüm (Zoom & Pan)</div>
+            <div class="btn-group">
+                <button id="btnZoomIn" class="zoom">Zoom + 🔍</button>
+                <button id="btnZoomOut" class="zoom">Zoom - 🔍</button>
+                <button id="btnZoomReset" class="reset">Konumu Sıfırla</button>
+            </div>
+
+            <div class="section-title">1. Manyetik Alan Yönü</div>
+            <div class="btn-group">
+                <button id="btnIn" class="active">İçeri (⊗)</button>
+                <button id="btnOut">Dışarı (⊙)</button>
+            </div>
+
+            <div class="section-title">2. Parçacık Seçimi</div>
+            <div class="btn-group">
+                <button id="btnProton" class="proton active">Proton (+q)</button>
+                <button id="btnElectron" class="electron">Elektron (-q)</button>
+                <button id="btnNeutron" class="neutron">Nötron (0)</button>
+            </div>
+
+            <div class="section-title">3. Parametreler</div>
+            <div class="control-row">
+                <label><span>Manyetik Alan (B):</span><span id="lblB">100 T</span></label>
+                <input type="range" id="sliderB" min="0" max="1000" step="1" value="100">
+            </div>
+            <div class="control-row">
+                <label><span>Fırlatma Hızı (v):</span><span id="lblV">200 m/s</span></label>
+                <input type="range" id="sliderV" min="100" max="400" step="10" value="200">
+            </div>
+
+            <div class="btn-group">
+                <button id="btnFire" class="fire">Ateşle 🚀</button>
+                <button id="btnReset" class="reset">Tümünü Temizle</button>
+            </div>
+
+            <div class="section-title">Hesaplanan Değerler</div>
+            <div class="data-card">
+                <div class="data-row"><span>Kuvvet (F = q·v·B):</span><span id="valF" class="data-val">0 N</span></div>
+                <div class="data-row"><span>Hız Büyüklüğü (|v|):</span><span id="valV" class="data-val">-</span></div>
+                <div class="data-row"><span>Yarıçap (r = m·v / q·B):</span><span id="valR" class="data-val">-</span></div>
+            </div>
+
+            <div class="reasoning-box">
+                <div class="reasoning-title">💡 Fiziksel Değişim Analizi</div>
+                <div class="reasoning-text" id="reasoningText">Simülasyonu başlatmak için "Ateşle" butonuna basınız.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let bDirection = 'IN';
+        let selectedParticle = 'PROTON';
+        
+        let B_val = 100;
+        let v_val = 200;
+
+        // Pan ve Zoom Değişkenleri
+        let zoomScale = 1.0;
+        let panX = 0;
+        let panY = 0;
+        let isDragging = false;
+        let startX = 0;
+        let startY = 0;
+
+        const PARTICLE_TYPES = {
+            PROTON:   { name: 'Proton',   q: 1,  m: 1.0,   color: '#ef4444', radius: 9 },
+            ELECTRON: { name: 'Elektron', q: -1, m: 0.15,  color: '#3b82f6', radius: 6 },
+            NEUTRON:  { name: 'Nötron',   q: 0,  m: 1.0,   color: '#94a3b8', radius: 8 }
+        };
+
+        let activeParticle = null;
+        let currentPath = [];
+        let historyPaths = [];
+
+        const btnIn = document.getElementById('btnIn');
+        const btnOut = document.getElementById('btnOut');
+        const btnProton = document.getElementById('btnProton');
+        const btnElectron = document.getElementById('btnElectron');
+        const btnNeutron = document.getElementById('btnNeutron');
+        const sliderB = document.getElementById('sliderB');
+        const sliderV = document.getElementById('sliderV');
+        const lblB = document.getElementById('lblB');
+        const lblV = document.getElementById('lblV');
+        const btnFire = document.getElementById('btnFire');
+        const btnReset = document.getElementById('btnReset');
+        const reasoningText = document.getElementById('reasoningText');
+
+        const btnZoomIn = document.getElementById('btnZoomIn');
+        const btnZoomOut = document.getElementById('btnZoomOut');
+        const btnZoomReset = document.getElementById('btnZoomReset');
+
+        // Zoom Kontrolleri
+        btnZoomIn.onclick = () => { zoomScale = Math.min(zoomScale * 1.2, 5.0); };
+        btnZoomOut.onclick = () => { zoomScale = Math.max(zoomScale / 1.2, 0.2); };
+        btnZoomReset.onclick = () => { zoomScale = 1.0; panX = 0; panY = 0; };
+
+        // Fare ile Zoom (Wheel)
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            if (e.deltaY < 0) {
+                zoomScale = Math.min(zoomScale * 1.1, 5.0);
+            } else {
+                zoomScale = Math.max(zoomScale / 1.1, 0.2);
+            }
+        });
+
+        // Tut-Sürükle (Pan) İşlemleri
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            startX = e.clientX - panX;
+            startY = e.clientY - panY;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            panX = e.clientX - startX;
+            panY = e.clientY - startY;
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        // Mobil Dokunmatik (Touch) Sürükle Desteği
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                isDragging = true;
+                startX = e.touches[0].clientX - panX;
+                startY = e.touches[0].clientY - panY;
+            }
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (isDragging && e.touches.length === 1) {
+                panX = e.touches[0].clientX - startX;
+                panY = e.touches[0].clientY - startY;
+            }
+        });
+
+        canvas.addEventListener('touchend', () => {
+            isDragging = false;
+        });
+
+        btnIn.onclick = () => { bDirection = 'IN'; btnIn.classList.add('active'); btnOut.classList.remove('active'); updateReasoning(); };
+        btnOut.onclick = () => { bDirection = 'OUT'; btnOut.classList.add('active'); btnIn.classList.remove('active'); updateReasoning(); };
+
+        btnProton.onclick = () => selectParticle('PROTON');
+        btnElectron.onclick = () => selectParticle('ELECTRON');
+        btnNeutron.onclick = () => selectParticle('NEUTRON');
+
+        function selectParticle(type) {
+            selectedParticle = type;
+            [btnProton, btnElectron, btnNeutron].forEach(b => b.classList.remove('active'));
+            if(type === 'PROTON') btnProton.classList.add('active');
+            if(type === 'ELECTRON') btnElectron.classList.add('active');
+            if(type === 'NEUTRON') btnNeutron.classList.add('active');
+            updateReasoning();
+        }
+
+        sliderB.oninput = () => { B_val = parseFloat(sliderB.value); lblB.innerText = B_val + ' T'; updateReasoning(); };
+        sliderV.oninput = () => { v_val = parseFloat(sliderV.value); lblV.innerText = v_val + ' m/s'; updateReasoning(); };
+
+        btnFire.onclick = spawnParticle;
+        btnReset.onclick = () => { 
+            activeParticle = null; 
+            currentPath = []; 
+            historyPaths = []; 
+            updateReadouts(0, '-', '-'); 
+            reasoningText.innerText = "Tüm yörüngeler temizlendi.";
+        };
+
+        function spawnParticle() {
+            if (currentPath.length > 0 && activeParticle) {
+                historyPaths.push({
+                    path: [...currentPath],
+                    color: activeParticle.color
+                });
+            }
+
+            const pData = PARTICLE_TYPES[selectedParticle];
+            activeParticle = {
+                x: canvas.width / 2,
+                y: canvas.height / 2,
+                vx: 0,
+                vy: -v_val,
+                q: pData.q,
+                m: pData.m,
+                color: pData.color,
+                radius: pData.radius,
+                alive: true,
+                speed: v_val
+            };
+            currentPath = [];
+            updateReasoning();
+        }
+
+        function updateReasoning() {
+            const p = PARTICLE_TYPES[selectedParticle];
+            
+            if (p.q === 0) {
+                reasoningText.innerHTML = "<b>Yüksüz Parçacık (Nötron):</b><br>• Lorentz kuvveti etki etmez.<br>• Yörünge sapmaz, doğrusal hareket yapar.";
+                return;
+            }
+
+            let qSign = p.q > 0 ? "Pozitif yük" : "Negatif yük";
+
+            reasoningText.innerHTML = `<b>${p.name} - ${qSign}:</b><br>` +
+                `• <b>İş Yapmama İlkesi:</b> Manyetik kuvvet her an hız vektörüne diktir. Bu yüzden manyetik kuvvet iş yapmaz ve parçacığın sürati tam tur boyunca sabit kalır.<br>` +
+                `• <b>Merkezcil Kuvvet & Yarıçap:</b> Manyetik kuvvet merkezcil kuvvete eşittir. Parçacık tam dairesel yörünge çizer.<br>` +
+                `• <b>Parametre Etkisi:</b> Manyetik alan arttıkça dairesel yörünge daralır; hız arttıkça yarıçap büyür.`;
+        }
+
+        function update(dt) {
+            if (!activeParticle || !activeParticle.alive) return;
+
+            let Bz = (bDirection === 'IN') ? -B_val : B_val;
+            
+            // Görsel yumuşatma ölçeği
+            let SCALE_F = 0.001;
+
+            let Fx = activeParticle.q * activeParticle.vy * Bz * SCALE_F;
+            let Fy = -activeParticle.q * activeParticle.vx * Bz * SCALE_F;
+
+            let ax = Fx / activeParticle.m;
+            let ay = Fy / activeParticle.m;
+
+            activeParticle.vx += ax * dt;
+            activeParticle.vy += ay * dt;
+
+            // Dairesel Yörüngeden Sapmama Garantisi (Sürat sabitleme)
+            if (activeParticle.q !== 0) {
+                let currentSpeed = Math.hypot(activeParticle.vx, activeParticle.vy);
+                if (currentSpeed > 0) {
+                    activeParticle.vx = (activeParticle.vx / currentSpeed) * activeParticle.speed;
+                    activeParticle.vy = (activeParticle.vy / currentSpeed) * activeParticle.speed;
+                }
+            }
+
+            activeParticle.x += activeParticle.vx * dt;
+            activeParticle.y += activeParticle.vy * dt;
+
+            currentPath.push({ x: activeParticle.x, y: activeParticle.y });
+
+            if (activeParticle.x < -3000 || activeParticle.x > canvas.width + 3000 || 
+                activeParticle.y < -3000 || activeParticle.y > canvas.height + 3000) {
+                activeParticle.alive = false;
+            }
+
+            let vMag = Math.hypot(activeParticle.vx, activeParticle.vy);
+            let FMag = Math.abs(activeParticle.q) * vMag * B_val;
+            let rVal = (activeParticle.q !== 0 && B_val > 0) 
+                ? ((activeParticle.m * vMag) / (Math.abs(activeParticle.q) * B_val * 0.1)).toFixed(2) + ' px' 
+                : 'Sonsuz';
+
+            updateReadouts(FMag, vMag.toFixed(0) + ' m/s (Sabit)', rVal);
+        }
+
+        function updateReadouts(F, v, r) {
+            document.getElementById('valF').innerText = typeof F === 'number' ? F.toFixed(0) + ' N' : F;
+            document.getElementById('valV').innerText = v;
+            document.getElementById('valR').innerText = r;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            // Tut-Sürükle (Pan) ve Zoom Dönüşümleri
+            ctx.translate(canvas.width / 2 + panX, canvas.height / 2 + panY);
+            ctx.scale(zoomScale, zoomScale);
+            ctx.translate(-canvas.width / 2, -canvas.height / 2);
+
+            // Genişletilmiş Arka Plan Grid / Manyetik Alan Simgeleri
+            ctx.lineWidth = 1.5;
+            for (let x = -2000; x < canvas.width + 2000; x += 50) {
+                for (let y = -2000; y < canvas.height + 2000; y += 50) {
+                    if (bDirection === 'IN') {
+                        ctx.strokeStyle = '#334155';
+                        ctx.beginPath();
+                        ctx.moveTo(x - 6, y - 6); ctx.lineTo(x + 6, y + 6);
+                        ctx.moveTo(x + 6, y - 6); ctx.lineTo(x - 6, y + 6);
+                        ctx.stroke();
+                    } else {
+                        ctx.fillStyle = '#334155';
+                        ctx.beginPath();
+                        ctx.arc(x, y, 3, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            }
+
+            // Fırlatma Noktası (Merkez)
+            let cx = canvas.width / 2;
+            let cy = canvas.height / 2;
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(cx - 15, cy - 15, 30, 30);
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(cx - 15, cy - 15, 30, 30);
+            
+            ctx.fillStyle = '#38bdf8';
+            ctx.beginPath();
+            ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Geçmiş Yörüngeler
+            historyPaths.forEach(hist => {
+                if (hist.path.length > 1) {
+                    ctx.beginPath();
+                    ctx.moveTo(hist.path[0].x, hist.path[0].y);
+                    for (let i = 1; i < hist.path.length; i++) {
+                        ctx.lineTo(hist.path[i].x, hist.path[i].y);
+                    }
+                    ctx.strokeStyle = hist.color;
+                    ctx.globalAlpha = 0.25;
+                    ctx.lineWidth = 2 / zoomScale;
+                    ctx.setLineDash([3, 3]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    ctx.globalAlpha = 1.0;
+                }
+            });
+
+            // Aktif Yörünge
+            if (currentPath.length > 1) {
+                ctx.beginPath();
+                ctx.moveTo(currentPath[0].x, currentPath[0].y);
+                for (let i = 1; i < currentPath.length; i++) {
+                    ctx.lineTo(currentPath[i].x, currentPath[i].y);
+                }
+                ctx.strokeStyle = activeParticle ? activeParticle.color : '#ffffff';
+                ctx.lineWidth = 2.5 / zoomScale;
+                ctx.setLineDash([4, 4]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            // Aktif Parçacık ve Vektörler
+            if (activeParticle) {
+                ctx.beginPath();
+                ctx.arc(activeParticle.x, activeParticle.y, activeParticle.radius, 0, Math.PI * 2);
+                ctx.fillStyle = activeParticle.color;
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2 / zoomScale;
+                ctx.stroke();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                let symbol = activeParticle.q > 0 ? '+' : (activeParticle.q < 0 ? '-' : '0');
+                ctx.fillText(symbol, activeParticle.x, activeParticle.y);
+
+                if (activeParticle.alive) {
+                    // Hız Vektörü (v)
+                    drawArrow(activeParticle.x, activeParticle.y, activeParticle.x + activeParticle.vx * 0.2, activeParticle.y + activeParticle.vy * 0.2, '#10b981', 'v');
+
+                    // DENGELENMİŞ Manyetik Kuvvet Vektörü (F) - Ekrandan fırlaması engellendi
+                    if (activeParticle.q !== 0 && B_val > 0) {
+                        let Bz = (bDirection === 'IN') ? -B_val : B_val;
+                        let Fx_raw = activeParticle.q * activeParticle.vy * Bz;
+                        let Fy_raw = -activeParticle.q * activeParticle.vx * Bz;
+                        
+                        let fLen = Math.hypot(Fx_raw, Fy_raw);
+                        if (fLen > 0) {
+                            // Sabit ve şık bir görünüm boyutu (en fazla 45 piksel)
+                            let arrowLen = Math.min(45, 15 + Math.log10(B_val + 1) * 10);
+                            let Fx_norm = (Fx_raw / fLen) * arrowLen;
+                            let Fy_norm = (Fy_raw / fLen) * arrowLen;
+                            drawArrow(activeParticle.x, activeParticle.y, activeParticle.x + Fx_norm, activeParticle.y + Fy_norm, '#eab308', 'F');
+                        }
+                    }
+                }
+            }
+
+            ctx.restore();
+        }
+
+        function drawArrow(fromx, fromy, tox, toy, color, label) {
+            let headlen = 8 / zoomScale;
+            let dx = tox - fromx;
+            let dy = toy - fromy;
+            let angle = Math.atan2(dy, dx);
+
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 2 / zoomScale;
+
+            ctx.beginPath();
+            ctx.moveTo(fromx, fromy);
+            ctx.lineTo(tox, toy);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(tox, toy);
+            ctx.lineTo(tox - headlen * Math.cos(angle - Math.PI / 6), toy - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(tox - headlen * Math.cos(angle + Math.PI / 6), toy - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.fill();
+
+            if (label) {
+                ctx.font = 'bold 12px sans-serif';
+                ctx.fillText(label, tox + Math.cos(angle) * (12 / zoomScale), toy + Math.sin(angle) * (12 / zoomScale));
+            }
+        }
+
+        let lastTime = performance.now();
+        function loop(now) {
+            let dt = (now - lastTime) / 1000;
+            lastTime = now;
+            if (dt > 0.1) dt = 0.1;
+
+            update(dt);
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        requestAnimationFrame(loop);
+    </script>
+</body>
+</html>
