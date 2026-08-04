@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Optik Mercekler - Zoom ve Pan Simülasyonu</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; background: #1e1e24; color: #fff; margin: 20px; }
+    canvas { background: #111116; border: 2px solid #444; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); cursor: grab; }
+    canvas:active { cursor: grabbing; }
+    
+    .lens-select { display: flex; justify-content: center; gap: 20px; margin-bottom: 15px; }
+    .lens-select label { background: #2b2b36; padding: 10px 20px; border-radius: 6px; cursor: pointer; border: 1px solid #555; font-weight: bold; }
+    .lens-select input[type="radio"] { margin-right: 8px; }
+    
+    .main-controls { display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 15px; background: #2b2b36; padding: 12px 20px; border-radius: 8px; width: fit-content; margin: 0 auto 15px auto; }
+    
+    button.btn { font-weight: bold; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: 0.2s; }
+    button.add-btn { background: #00e676; color: #111; }
+    button.add-btn:hover { background: #00c853; }
+    button.reset-btn { background: #ff9800; color: #111; }
+    button.reset-btn:hover { background: #f57c00; }
+
+    .objects-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-bottom: 20px; }
+    .object-card { background: #2b2b36; border: 1px solid #444; border-radius: 8px; padding: 12px; width: 220px; text-align: left; position: relative; }
+    .object-card h4 { margin: 0 0 10px 0; color: #00bcd4; display: flex; justify-content: space-between; align-items: center; }
+    .btn-delete { background: #ff5252; color: #fff; border: none; border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 12px; }
+    
+    .control-group { display: flex; flex-direction: column; margin-bottom: 8px; }
+    .control-group label { font-size: 12px; font-weight: bold; margin-bottom: 3px; color: #ccc; }
+
+    .data-table { margin: 15px auto; border-collapse: collapse; width: 90%; max-width: 1000px; background: #2b2b36; border-radius: 8px; overflow: hidden; }
+    .data-table th, .data-table td { padding: 10px; border: 1px solid #444; text-align: center; font-size: 13px; }
+    .data-table th { background: #3b3b4a; color: #00e676; }
+    
+    .info { font-size: 14px; color: #00e676; margin-top: 5px; font-weight: bold; min-height: 25px; }
+    .zoom-info { font-size: 12px; color: #aaa; margin-bottom: 5px; }
+  </style>
+</head>
+<body>
+
+  <h2>Optik Mercekler - Çoklu Cisim & Zoom Simülasyonu</h2>
+  <div class="zoom-info">💡 <b>İpucu:</b> Tuval üzerinde fare tekerleği ile <b>Zoom In/Out</b> yapabilir, farenin sol tuşuna basılı tutarak ekranı <b>kaydırabilirsiniz</b>.</div>
+
+  <!-- Mercek Seçimi -->
+  <div class="lens-select">
+    <label><input type="radio" name="lensType" value="convex" checked> İnce Kenarlı Mercek (Yakınsak)</label>
+    <label><input type="radio" name="lensType" value="concave"> Kalın Kenarlı Mercek (Iraksak)</label>
+  </div>
+
+  <div class="main-controls">
+    <div class="control-group">
+      <label for="focalLength">Odak Uzaklığı (f): <span id="fVal">150</span> px</label>
+      <input type="range" id="focalLength" min="50" max="300" value="150" step="10">
+    </div>
+    <button class="btn add-btn" id="addObjectBtn">+ Cisim Ekle</button>
+    <button class="btn reset-btn" id="resetViewBtn">🔍 Ekranı Sıfırla</button>
+  </div>
+
+  <!-- Dinamik Cisim Kartları -->
+  <div class="objects-container" id="objectsContainer"></div>
+
+  <canvas id="opticsCanvas" width="1000" height="420"></canvas>
+
+  <!-- Karşılaştırma Tablosu -->
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Cisim Adı</th>
+        <th>Cisim Uzaklığı (d<sub>o</sub>)</th>
+        <th>Görüntü Uzaklığı (|d<sub>i</sub>|)</th>
+        <th>Cisim Boyu (h<sub>o</sub>)</th>
+        <th>Görüntü Boyu (|h<sub>i</sub>|)</th>
+        <th>Görüntü Özelliği</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+
+  <div id="infoBox" class="info"></div>
+
+  <script>
+    const canvas = document.getElementById('opticsCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const sliderF = document.getElementById('focalLength');
+    const fVal = document.getElementById('fVal');
+    const radioButtons = document.querySelectorAll('input[name="lensType"]');
+    const objectsContainer = document.getElementById('objectsContainer');
+    const addObjectBtn = document.getElementById('addObjectBtn');
+    const resetViewBtn = document.getElementById('resetViewBtn');
+    const tableBody = document.getElementById('tableBody');
+    const infoBox = document.getElementById('infoBox');
+
+    const lensX = 500; 
+    const axisY = 210; 
+
+    // --- ZOOM & PAN (KAYDIRMA) DEĞİŞKENLERİ ---
+    let zoomScale = 1.0;
+    let panX = 0;
+    let panY = 0;
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+
+    const colors = ['#29b6f6', '#ffb74d', '#e91e63', '#00e676', '#ffeb3b', '#ab47bc'];
+    let objects = [
+      { id: 1, name: 'Cisim 1', do_val: 220, ho: 60, color: '#29b6f6' }
+    ];
+    let nextId = 2;
+
+    function drawArrow(x, yFrom, yTo, color, lineWidth, isDashed = false) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.setLineDash(isDashed ? [6, 6] : []);
+
+      ctx.beginPath();
+      ctx.moveTo(x, yFrom);
+      ctx.lineTo(x, yTo);
+      ctx.stroke();
+
+      ctx.setLineDash([]);
+      const headLen = 10;
+      const angle = Math.atan2(yTo - yFrom, 0);
+      
+      ctx.beginPath();
+      ctx.moveTo(x, yTo);
+      ctx.lineTo(x - headLen * Math.cos(angle - Math.PI / 6), yTo - headLen * Math.sin(angle - Math.PI / 6));
+      ctx.lineTo(x - headLen * Math.cos(angle + Math.PI / 6), yTo - headLen * Math.sin(angle + Math.PI / 6));
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function renderObjectCards() {
+      objectsContainer.innerHTML = '';
+      objects.forEach((obj) => {
+        const card = document.createElement('div');
+        card.className = 'object-card';
+        card.style.borderLeft = `5px solid ${obj.color}`;
+        card.innerHTML = `
+          <h4>
+            <span style="color:${obj.color}">${obj.name}</span>
+            ${objects.length > 1 ? `<button class="btn-delete" onclick="removeObject(${obj.id})">Sil</button>` : ''}
+          </h4>
+          <div class="control-group">
+            <label>Uzaklık (d<sub>o</sub>): ${obj.do_val} px</label>
+            <input type="range" min="10" max="450" value="${obj.do_val}" step="10" oninput="updateObject(${obj.id}, 'do_val', this.value)">
+          </div>
+          <div class="control-group">
+            <label>Boy (h<sub>o</sub>): ${obj.ho} px</label>
+            <input type="range" min="20" max="120" value="${obj.ho}" step="10" oninput="updateObject(${obj.id}, 'ho', this.value)">
+          </div>
+        `;
+        objectsContainer.appendChild(card);
+      });
+    }
+
+    function addObject() {
+      const color = colors[(nextId - 1) % colors.length];
+      const newDo = 100 + ((nextId * 40) % 240);
+      const newHo = 40 + ((nextId * 10) % 50);
+
+      objects.push({
+        id: nextId,
+        name: `Cisim ${nextId}`,
+        do_val: Math.round(newDo / 10) * 10,
+        ho: Math.round(newHo / 10) * 10,
+        color: color
+      });
+      nextId++;
+      renderObjectCards();
+      draw();
+    }
+
+    function removeObject(id) {
+      objects = objects.filter(o => o.id !== id);
+      renderObjectCards();
+      draw();
+    }
+
+    function updateObject(id, key, val) {
+      const obj = objects.find(o => o.id === id);
+      if (obj) {
+        obj[key] = parseFloat(val);
+        renderObjectCards();
+        draw();
+      }
+    }
+
+    function getSelectedLens() {
+      for (const radio of radioButtons) {
+        if (radio.checked) return radio.value;
+      }
+      return 'convex';
+    }
+
+    function draw() {
+      // Tuvali Temizle
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+
+      // Matrix Dönüşümleri (Zoom ve Pan için)
+      ctx.save();
+      ctx.translate(panX, panY);
+      ctx.scale(zoomScale, zoomScale);
+
+      const lensType = getSelectedLens();
+      const f = parseFloat(sliderF.value);
+      fVal.innerText = f;
+
+      // Asal Eksen
+      ctx.beginPath();
+      ctx.strokeStyle = '#666';
+      ctx.lineWidth = 1;
+      ctx.moveTo(-2000, axisY);
+      ctx.lineTo(3000, axisY);
+      ctx.stroke();
+
+      tableBody.innerHTML = '';
+
+      // Odak ve Merkez Noktaları
+      const F1_x = lensX - f;
+      const F2_x = lensX + f;
+      const M1_x = lensX - 2 * f;
+      const M2_x = lensX + 2 * f;
+
+      ctx.font = "13px Arial";
+      ctx.fillStyle = '#ff5252';
+      ctx.beginPath(); ctx.arc(F1_x, axisY, 4, 0, Math.PI * 2); ctx.fill(); ctx.fillText("F₁", F1_x - 6, axisY + 20);
+      ctx.beginPath(); ctx.arc(F2_x, axisY, 4, 0, Math.PI * 2); ctx.fill(); ctx.fillText("F₂", F2_x - 6, axisY + 20);
+
+      ctx.fillStyle = '#ffb74d';
+      ctx.beginPath(); ctx.arc(M1_x, axisY, 4, 0, Math.PI * 2); ctx.fill(); ctx.fillText("2F₁", M1_x - 10, axisY + 20);
+      ctx.beginPath(); ctx.arc(M2_x, axisY, 4, 0, Math.PI * 2); ctx.fill(); ctx.fillText("2F₂", M2_x - 10, axisY + 20);
+
+      ctx.fillStyle = '#fff';
+      ctx.fillText("O", lensX - 5, axisY + 20);
+
+      // Mercek Çizimi
+      ctx.beginPath();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#00bcd4';
+      ctx.moveTo(lensX, axisY - 160);
+      ctx.lineTo(lensX, axisY + 160);
+      ctx.stroke();
+
+      ctx.fillStyle = '#00bcd4';
+      if (lensType === 'convex') {
+        ctx.beginPath();
+        ctx.moveTo(lensX - 10, axisY - 150); ctx.lineTo(lensX, axisY - 165); ctx.lineTo(lensX + 10, axisY - 150);
+        ctx.moveTo(lensX - 10, axisY + 150); ctx.lineTo(lensX, axisY + 165); ctx.lineTo(lensX + 10, axisY + 150);
+        ctx.stroke();
+        infoBox.innerHTML = "<b>İNCE KENARLI MERCEK:</b> Işığı toplar. Cisim odaktan uzaktaysa GERÇEK (ters), odakla mercek arasındaysa SANAL (düz ve büyük) görüntü oluşur.";
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(lensX - 10, axisY - 165); ctx.lineTo(lensX, axisY - 150); ctx.lineTo(lensX + 10, axisY - 165);
+        ctx.moveTo(lensX - 10, axisY + 165); ctx.lineTo(lensX, axisY + 150); ctx.lineTo(lensX + 10, axisY + 165);
+        ctx.stroke();
+        infoBox.innerHTML = "<b>KALIN KENARLI MERCEK:</b> Işığı dağıtır. Tüm görüntülerin boyları cisimlerden küçüktür, SANAL, DÜZ ve F₁-O arasındadır.";
+      }
+
+      // Cisimler ve Görüntüler
+      objects.forEach((obj) => {
+        const objX = lensX - obj.do_val;
+        const objTopY = axisY - obj.ho;
+
+        drawArrow(objX, axisY, objTopY, obj.color, 4);
+        ctx.fillStyle = obj.color;
+        ctx.fillText(obj.name, objX - 18, objTopY - 10);
+
+        let di_str = "", hi_str = "", type_str = "";
+
+        if (lensType === 'convex') {
+          if (Math.abs(obj.do_val - f) < 0.1) {
+            di_str = "Sonsuz";
+            hi_str = "Sonsuz";
+            type_str = "<span style='color:#ffb74d'>Sonsuzda</span>";
+
+            ctx.lineWidth = 1; ctx.strokeStyle = obj.color;
+            ctx.beginPath(); ctx.moveTo(objX, objTopY); ctx.lineTo(lensX, objTopY); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(lensX, objTopY); ctx.lineTo(canvas.width * 2, axisY + (objTopY - axisY)); ctx.stroke();
+          } else {
+            const di = (f * obj.do_val) / (obj.do_val - f);
+            const m = -di / obj.do_val;
+            const hi_val = m * obj.ho;
+
+            const di_abs = Math.abs(di);
+            const hi_abs = Math.abs(hi_val);
+
+            const imgX = lensX + di;
+            const imgTopY = axisY - hi_val;
+
+            if (di > 0) {
+              drawArrow(imgX, axisY, imgTopY, obj.color, 3, false);
+              type_str = "<span style='color:#66bb6a'>Gerçek, Ters</span>";
+
+              ctx.lineWidth = 1; ctx.strokeStyle = obj.color;
+              ctx.beginPath(); ctx.moveTo(objX, objTopY); ctx.lineTo(lensX, objTopY); ctx.stroke();
+              const slopeF2 = (axisY - objTopY) / (F2_x - lensX);
+              ctx.beginPath(); ctx.moveTo(lensX, objTopY); ctx.lineTo(lensX + 1500, objTopY + slopeF2 * 1500); ctx.stroke();
+
+              const slopeO = (axisY - objTopY) / (lensX - objX);
+              ctx.beginPath(); ctx.moveTo(objX, objTopY); ctx.lineTo(lensX + 1500, axisY + slopeO * 1500); ctx.stroke();
+
+            } else {
+              drawArrow(imgX, axisY, imgTopY, obj.color, 3, true);
+              type_str = "<span style='color:#ab47bc'>Sanal, Düz, Büyük</span>";
+
+              ctx.lineWidth = 1; ctx.strokeStyle = obj.color;
+              ctx.beginPath(); ctx.moveTo(objX, objTopY); ctx.lineTo(lensX, objTopY); ctx.stroke();
+              const slopeF2 = (axisY - objTopY) / (F2_x - lensX);
+              ctx.beginPath(); ctx.moveTo(lensX, objTopY); ctx.lineTo(lensX + 1500, objTopY + slopeF2 * 1500); ctx.stroke();
+              ctx.beginPath(); ctx.setLineDash([3, 3]); ctx.moveTo(lensX, objTopY); ctx.lineTo(imgX, imgTopY); ctx.stroke(); ctx.setLineDash([]);
+
+              const slopeO = (axisY - objTopY) / (lensX - objX);
+              ctx.beginPath(); ctx.moveTo(objX, objTopY); ctx.lineTo(lensX + 1500, axisY + slopeO * 1500); ctx.stroke();
+              ctx.beginPath(); ctx.setLineDash([3, 3]); ctx.moveTo(lensX, axisY); ctx.lineTo(imgX, imgTopY); ctx.stroke(); ctx.setLineDash([]);
+            }
+
+            di_str = `${di_abs.toFixed(1)} px`;
+            hi_str = `${hi_abs.toFixed(1)} px`;
+          }
+
+        } else {
+          const di_abs = (f * obj.do_val) / (obj.do_val + f);
+          const m = di_abs / obj.do_val;
+          const hi_abs = m * obj.ho;
+
+          const imgX = lensX - di_abs;
+          const imgTopY = axisY - hi_abs;
+
+          drawArrow(imgX, axisY, imgTopY, obj.color, 3, true);
+          type_str = "<span style='color:#ab47bc'>Sanal, Düz, Küçük</span>";
+
+          ctx.lineWidth = 1; ctx.strokeStyle = obj.color;
+          ctx.beginPath(); ctx.moveTo(objX, objTopY); ctx.lineTo(lensX, objTopY); ctx.stroke();
+          
+          const slopeF1 = (objTopY - axisY) / (lensX - F1_x);
+          const ray1EndY = objTopY + slopeF1 * 1500;
+          ctx.beginPath(); ctx.moveTo(lensX, objTopY); ctx.lineTo(lensX + 1500, ray1EndY); ctx.stroke();
+          
+          ctx.beginPath(); ctx.setLineDash([3, 3]); ctx.moveTo(lensX, objTopY); ctx.lineTo(F1_x, axisY); ctx.stroke(); ctx.setLineDash([]);
+
+          const slopeO = (axisY - objTopY) / (lensX - objX);
+          ctx.beginPath(); ctx.moveTo(objX, objTopY); ctx.lineTo(lensX + 1500, axisY + slopeO * 1500); ctx.stroke();
+
+          di_str = `${di_abs.toFixed(1)} px`;
+          hi_str = `${hi_abs.toFixed(1)} px`;
+        }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="color:${obj.color}; font-weight:bold">${obj.name}</td>
+          <td>${obj.do_val.toFixed(0)} px</td>
+          <td>${di_str}</td>
+          <td>${obj.ho.toFixed(0)} px</td>
+          <td>${hi_str}</td>
+          <td>${type_str}</td>
+        `;
+        tableBody.appendChild(tr);
+      });
+
+      ctx.restore();
+    }
+
+    // --- EVENT LISTENERS FOR ZOOM & PAN ---
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomFactor = 1.1;
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      let newScale = e.deltaY < 0 ? zoomScale * zoomFactor : zoomScale / zoomFactor;
+      newScale = Math.min(Math.max(0.4, newScale), 3.5); // Min 0.4x, Max 3.5x zoom sınırı
+
+      // Fare imlecinin olduğu noktaya doğru yakınlaşma hesabı
+      panX = mouseX - (mouseX - panX) * (newScale / zoomScale);
+      panY = mouseY - (mouseY - panY) * (newScale / zoomScale);
+      zoomScale = newScale;
+
+      draw();
+    }, { passive: false });
+
+    canvas.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      startX = e.clientX - panX;
+      startY = e.clientY - panY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      panX = e.clientX - startX;
+      panY = e.clientY - startY;
+      draw();
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+
+    resetViewBtn.addEventListener('click', () => {
+      zoomScale = 1.0;
+      panX = 0;
+      panY = 0;
+      draw();
+    });
+
+    addObjectBtn.addEventListener('click', addObject);
+    sliderF.addEventListener('input', draw);
+    radioButtons.forEach(radio => radio.addEventListener('change', draw));
+
+    renderObjectCards();
+    draw();
+  </script>
+</body>
+</html>

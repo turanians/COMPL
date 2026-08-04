@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Optik Aynalar - Çoklu Cisim Simülasyonu</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; background: #1e1e24; color: #fff; margin: 20px; }
+    
+    .canvas-container {
+      position: relative;
+      width: 1000px;
+      height: 420px;
+      margin: 0 auto 20px auto;
+      border: 2px solid #444;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #111116;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    }
+
+    canvas { display: block; cursor: grab; }
+    canvas:active { cursor: grabbing; }
+    
+    .mirror-select { display: flex; justify-content: center; gap: 20px; margin-bottom: 15px; }
+    .mirror-select label { background: #2b2b36; padding: 10px 20px; border-radius: 6px; cursor: pointer; border: 1px solid #555; font-weight: bold; }
+    .mirror-select input[type="radio"] { margin-right: 8px; }
+    
+    .main-controls { display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 15px; background: #2b2b36; padding: 12px 20px; border-radius: 8px; width: fit-content; margin: 0 auto 15px auto; }
+    
+    button.add-btn { background: #00e676; color: #111; font-weight: bold; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; transition: 0.2s; }
+    button.add-btn:hover { background: #00c853; }
+
+    button.reset-btn { background: #29b6f6; color: #111; font-weight: bold; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; transition: 0.2s; }
+    button.reset-btn:hover { background: #0288d1; color: #fff; }
+
+    .objects-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-bottom: 20px; }
+    .object-card { background: #2b2b36; border: 1px solid #444; border-radius: 8px; padding: 12px; width: 220px; text-align: left; position: relative; }
+    .object-card h4 { margin: 0 0 10px 0; color: #00bcd4; display: flex; justify-content: space-between; align-items: center; }
+    .btn-delete { background: #ff5252; color: #fff; border: none; border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 12px; }
+    
+    .control-group { display: flex; flex-direction: column; margin-bottom: 8px; }
+    .control-group label { font-size: 12px; font-weight: bold; margin-bottom: 3px; color: #ccc; }
+
+    .data-table { margin: 15px auto; border-collapse: collapse; width: 90%; max-width: 1000px; background: #2b2b36; border-radius: 8px; overflow: hidden; }
+    .data-table th, .data-table td { padding: 10px; border: 1px solid #444; text-align: center; font-size: 13px; }
+    .data-table th { background: #3b3b4a; color: #00e676; }
+    
+    .info { font-size: 14px; color: #00e676; margin-top: 5px; font-weight: bold; min-height: 25px; }
+  </style>
+</head>
+<body>
+
+  <h2>Optik Aynalar - Çoklu Cisim Simülasyonu</h2>
+
+  <!-- Aynalar -->
+  <div class="mirror-select">
+    <label><input type="radio" name="mirrorType" value="concave"> Çukur Ayna</label>
+    <label><input type="radio" name="mirrorType" value="convex"> Tümsek Ayna</label>
+    <label><input type="radio" name="mirrorType" value="flat" checked> Düzlem Ayna</label>
+  </div>
+
+  <div class="main-controls">
+    <div class="control-group" id="radiusGroup">
+      <label for="radius">Eğrilik Yarıçapı (R): <span id="rVal">300</span> px</label>
+      <input type="range" id="radius" min="80" max="700" value="300" step="10">
+    </div>
+    <button class="add-btn" id="addObjectBtn">+ Cisim Ekle</button>
+    <button class="reset-btn" id="resetViewBtn">Görünümü Sıfırla</button>
+  </div>
+
+  <!-- Dinamik Cisim Kartları -->
+  <div class="objects-container" id="objectsContainer"></div>
+
+  <div class="canvas-container">
+    <canvas id="opticsCanvas" width="1000" height="420"></canvas>
+  </div>
+
+  <!-- Karşılaştırma Tablosu -->
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Cisim Adı</th>
+        <th>Cisim Uzaklığı (d<sub>o</sub>)</th>
+        <th>Görüntü Uzaklığı (|d<sub>i</sub>|)</th>
+        <th>Cisim Boyu (h<sub>o</sub>)</th>
+        <th>Görüntü Boyu (|h<sub>i</sub>|)</th>
+        <th>Görüntü Özelliği</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+
+  <div id="infoBox" class="info"></div>
+
+  <script>
+    const canvas = document.getElementById('opticsCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const sliderR = document.getElementById('radius');
+    const rVal = document.getElementById('rVal');
+    const radiusGroup = document.getElementById('radiusGroup');
+    const radioButtons = document.querySelectorAll('input[name="mirrorType"]');
+    const objectsContainer = document.getElementById('objectsContainer');
+    const addObjectBtn = document.getElementById('addObjectBtn');
+    const resetViewBtn = document.getElementById('resetViewBtn');
+    const tableBody = document.getElementById('tableBody');
+    const infoBox = document.getElementById('infoBox');
+
+    const vertexX = 650;
+    const axisY = 210;
+
+    // --- ZOOM VE PAN (SÜRÜKLEMA) DEĞİŞKENLERİ ---
+    let scale = 1;
+    let panX = 0;
+    let panY = 0;
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+
+    const colors = ['#29b6f6', '#ffb74d', '#e91e63', '#00e676', '#ffeb3b', '#ab47bc'];
+    let objects = [
+      { id: 1, name: 'Cisim 1', do_val: 200, ho: 60, color: '#29b6f6' }
+    ];
+    let nextId = 2;
+
+    function drawArrow(x, yFrom, yTo, color, lineWidth, isDashed = false) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.setLineDash(isDashed ? [6, 6] : []);
+
+      ctx.beginPath();
+      ctx.moveTo(x, yFrom);
+      ctx.lineTo(x, yTo);
+      ctx.stroke();
+
+      ctx.setLineDash([]);
+      const headLen = 10;
+      const angle = Math.atan2(yTo - yFrom, 0);
+      
+      ctx.beginPath();
+      ctx.moveTo(x, yTo);
+      ctx.lineTo(x - headLen * Math.cos(angle - Math.PI / 6), yTo - headLen * Math.sin(angle - Math.PI / 6));
+      ctx.lineTo(x - headLen * Math.cos(angle + Math.PI / 6), yTo - headLen * Math.sin(angle + Math.PI / 6));
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function renderObjectCards() {
+      objectsContainer.innerHTML = '';
+      objects.forEach((obj) => {
+        const card = document.createElement('div');
+        card.className = 'object-card';
+        card.style.borderLeft = `5px solid ${obj.color}`;
+        card.innerHTML = `
+          <h4>
+            <span style="color:${obj.color}">${obj.name}</span>
+            ${objects.length > 1 ? `<button class="btn-delete" onclick="removeObject(${obj.id})">Sil</button>` : ''}
+          </h4>
+          <div class="control-group">
+            <label>Uzaklık (d<sub>o</sub>): ${obj.do_val} px</label>
+            <input type="range" min="10" max="600" value="${obj.do_val}" step="10" oninput="updateObject(${obj.id}, 'do_val', this.value)">
+          </div>
+          <div class="control-group">
+            <label>Boy (h<sub>o</sub>): ${obj.ho} px</label>
+            <input type="range" min="20" max="120" value="${obj.ho}" step="10" oninput="updateObject(${obj.id}, 'ho', this.value)">
+          </div>
+        `;
+        objectsContainer.appendChild(card);
+      });
+    }
+
+    function addObject() {
+      const color = colors[(nextId - 1) % colors.length];
+      const randomDo = Math.round((120 + (nextId * 30) % 250) / 10) * 10;
+      const randomHo = Math.round((50 + (nextId * 10) % 40) / 10) * 10;
+
+      objects.push({
+        id: nextId,
+        name: `Cisim ${nextId}`,
+        do_val: randomDo,
+        ho: randomHo,
+        color: color
+      });
+      nextId++;
+      renderObjectCards();
+      draw();
+    }
+
+    function removeObject(id) {
+      objects = objects.filter(o => o.id !== id);
+      renderObjectCards();
+      draw();
+    }
+
+    function updateObject(id, key, val) {
+      const obj = objects.find(o => o.id === id);
+      if (obj) {
+        obj[key] = parseFloat(val);
+        renderObjectCards();
+        draw();
+      }
+    }
+
+    function getSelectedMirror() {
+      for (const radio of radioButtons) {
+        if (radio.checked) return radio.value;
+      }
+      return 'flat';
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Transform Matrix Uygulaması (Zoom & Pan)
+      ctx.save();
+      ctx.translate(panX, panY);
+      ctx.scale(scale, scale);
+
+      const mirrorType = getSelectedMirror();
+      const R = parseFloat(sliderR.value);
+      rVal.innerText = R;
+
+      radiusGroup.style.display = (mirrorType === 'flat') ? 'none' : 'flex';
+
+      // Asal Eksen
+      ctx.beginPath();
+      ctx.strokeStyle = '#666';
+      ctx.lineWidth = 1;
+      ctx.moveTo(-2000, axisY);
+      ctx.lineTo(2000, axisY);
+      ctx.stroke();
+
+      tableBody.innerHTML = '';
+
+      // --- AYNA ÇİZİMLERİ ---
+      if (mirrorType === 'flat') {
+        ctx.beginPath(); ctx.lineWidth = 4; ctx.strokeStyle = '#00bcd4';
+        ctx.moveTo(vertexX, axisY - 170); ctx.lineTo(vertexX, axisY + 170); ctx.stroke();
+        ctx.lineWidth = 1.5; ctx.strokeStyle = '#555';
+        for (let y = axisY - 170; y <= axisY + 170; y += 15) {
+          ctx.beginPath(); ctx.moveTo(vertexX, y); ctx.lineTo(vertexX + 10, y + 8); ctx.stroke();
+        }
+        ctx.fillStyle = '#fff'; ctx.fillText("T", vertexX + 8, axisY + 20);
+        infoBox.innerHTML = "<b>DÜZLEM AYNA:</b> Bütün cisimlerin görüntüleri sanal, düz, eşit boyda ve eşit uzaklıktadır.";
+      } else if (mirrorType === 'convex') {
+        const f = R / 2;
+        const F_x = vertexX + f;
+        const M_x = vertexX + R;
+        ctx.fillStyle = '#ff5252'; ctx.beginPath(); ctx.arc(F_x, axisY, 4, 0, Math.PI * 2); ctx.fill(); ctx.fillText("F", F_x - 4, axisY + 22);
+        ctx.fillStyle = '#ffb74d'; ctx.beginPath(); ctx.arc(M_x, axisY, 4, 0, Math.PI * 2); ctx.fill(); ctx.fillText("M", M_x - 4, axisY + 22);
+        ctx.fillStyle = '#fff'; ctx.fillText("T", vertexX - 16, axisY + 20);
+
+        ctx.beginPath(); ctx.lineWidth = 4; ctx.strokeStyle = '#00bcd4';
+        const arcAngle = 0.42;
+        ctx.arc(vertexX + R, axisY, R, Math.PI - arcAngle, Math.PI + arcAngle); ctx.stroke();
+        infoBox.innerHTML = "<b>TÜMSEK AYNA:</b> Işığı dağıtır. Tüm görüntülerin boyları cisimlerden küçüktür ve F-T arasındadır.";
+      } else {
+        const f = R / 2;
+        const F_x = vertexX - f;
+        const M_x = vertexX - R;
+        ctx.fillStyle = '#ff5252'; ctx.beginPath(); ctx.arc(F_x, axisY, 4, 0, Math.PI * 2); ctx.fill(); ctx.fillText("F", F_x - 4, axisY + 22);
+        ctx.fillStyle = '#ffb74d'; ctx.beginPath(); ctx.arc(M_x, axisY, 4, 0, Math.PI * 2); ctx.fill(); ctx.fillText("M", M_x - 4, axisY + 22);
+        ctx.fillStyle = '#fff'; ctx.fillText("T", vertexX + 8, axisY + 20);
+
+        ctx.beginPath(); ctx.lineWidth = 4; ctx.strokeStyle = '#00bcd4';
+        const arcAngle = 0.42;
+        ctx.arc(vertexX - R, axisY, R, -arcAngle, arcAngle); ctx.stroke();
+        infoBox.innerHTML = "<b>ÇUKUR AYNA:</b> Işığı toplar. Konuma göre gerçek (ters) veya sanal (düz) görüntüler oluşur.";
+      }
+
+      // --- CİSİMLERİ VE GÖRÜNTÜLERİ ÇİZİM DÖNGÜSÜ ---
+      objects.forEach((obj) => {
+        const objX = vertexX - obj.do_val;
+        const objTopY = axisY - obj.ho;
+
+        // Cismin kendisini çiz
+        drawArrow(objX, axisY, objTopY, obj.color, 4);
+        ctx.fillStyle = obj.color;
+        ctx.fillText(obj.name, objX - 18, objTopY - 10);
+
+        let di_str = "", hi_str = "", type_str = "";
+
+        if (mirrorType === 'flat') {
+          const imgX = vertexX + obj.do_val;
+          const imgTopY = objTopY;
+          drawArrow(imgX, axisY, imgTopY, obj.color, 3, true);
+
+          // Işınlar
+          ctx.lineWidth = 1; ctx.strokeStyle = obj.color;
+          ctx.beginPath(); ctx.moveTo(objX, objTopY); ctx.lineTo(vertexX, axisY); ctx.stroke();
+          const rayEndY = axisY + (obj.ho / obj.do_val) * vertexX;
+          ctx.beginPath(); ctx.moveTo(vertexX, axisY); ctx.lineTo(-1000, rayEndY); ctx.stroke();
+          ctx.beginPath(); ctx.setLineDash([3, 3]); ctx.moveTo(vertexX, axisY); ctx.lineTo(imgX, imgTopY); ctx.stroke(); ctx.setLineDash([]);
+
+          di_str = `${obj.do_val.toFixed(0)} px`;
+          hi_str = `${obj.ho.toFixed(0)} px`;
+          type_str = "<span style='color:#ab47bc'>Sanal, Düz, Eşit</span>";
+
+        } else if (mirrorType === 'convex') {
+          const f = R / 2;
+          const F_x = vertexX + f;
+
+          const di_abs = (f * obj.do_val) / (obj.do_val + f);
+          const m = di_abs / obj.do_val;
+          const hi_abs = m * obj.ho;
+
+          const imgX = vertexX + di_abs;
+          const imgTopY = axisY - hi_abs;
+
+          drawArrow(imgX, axisY, imgTopY, obj.color, 3, true);
+
+          // Işınlar
+          ctx.lineWidth = 1; ctx.strokeStyle = obj.color;
+          ctx.beginPath(); ctx.moveTo(objX, objTopY); ctx.lineTo(vertexX, objTopY); ctx.stroke();
+          const slopeF = (objTopY - axisY) / (vertexX - F_x);
+          ctx.beginPath(); ctx.moveTo(vertexX, objTopY); ctx.lineTo(-1000, objTopY + slopeF * (-1000 - vertexX)); ctx.stroke();
+          ctx.beginPath(); ctx.setLineDash([3, 3]); ctx.moveTo(vertexX, objTopY); ctx.lineTo(F_x, axisY); ctx.stroke(); ctx.setLineDash([]);
+
+          di_str = `${di_abs.toFixed(1)} px`;
+          hi_str = `${hi_abs.toFixed(1)} px`;
+          type_str = "<span style='color:#ab47bc'>Sanal, Düz, Küçük</span>";
+
+        } else {
+          // Çukur Ayna
+          const f = R / 2;
+          const F_x = vertexX - f;
+
+          if (Math.abs(obj.do_val - f) < 0.1) {
+            di_str = "Sonsuz";
+            hi_str = "Sonsuz";
+            type_str = "<span style='color:#ffb74d'>Sonsuzda</span>";
+          } else {
+            const di = (f * obj.do_val) / (obj.do_val - f);
+            const m = -di / obj.do_val;
+            const hi_val = m * obj.ho;
+
+            const di_abs = Math.abs(di);
+            const hi_abs = Math.abs(hi_val);
+
+            const imgX = vertexX - di;
+            const imgTopY = axisY - hi_val;
+
+            if (di > 0) {
+              drawArrow(imgX, axisY, imgTopY, obj.color, 3, false);
+              type_str = "<span style='color:#66bb6a'>Gerçek, Ters</span>";
+            } else {
+              drawArrow(imgX, axisY, imgTopY, obj.color, 3, true);
+              type_str = "<span style='color:#ab47bc'>Sanal, Düz</span>";
+            }
+
+            ctx.lineWidth = 1; ctx.strokeStyle = obj.color;
+            ctx.beginPath(); ctx.moveTo(objX, objTopY); ctx.lineTo(vertexX, objTopY); ctx.stroke();
+            const ray1Slope = (axisY - objTopY) / (F_x - vertexX);
+            ctx.beginPath(); ctx.moveTo(vertexX, objTopY); ctx.lineTo(-1000, objTopY + ray1Slope * (-1000 - vertexX)); ctx.stroke();
+            if (di < 0) {
+              ctx.beginPath(); ctx.setLineDash([3, 3]); ctx.moveTo(vertexX, objTopY); ctx.lineTo(imgX, imgTopY); ctx.stroke(); ctx.setLineDash([]);
+            }
+
+            di_str = `${di_abs.toFixed(1)} px`;
+            hi_str = `${hi_abs.toFixed(1)} px`;
+          }
+        }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="color:${obj.color}; font-weight:bold">${obj.name}</td>
+          <td>${obj.do_val.toFixed(0)} px</td>
+          <td>${di_str}</td>
+          <td>${obj.ho.toFixed(0)} px</td>
+          <td>${hi_str}</td>
+          <td>${type_str}</td>
+        `;
+        tableBody.appendChild(tr);
+      });
+
+      ctx.restore();
+    }
+
+    // --- ZOOM (SCROLL) ETKİLEŞİMİ ---
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      // Zoom faktörü (0.3x ile 3x arasında sınırlar)
+      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+      const newScale = Math.min(Math.max(0.3, scale * zoomFactor), 3);
+
+      // Fare imlecine göre ölçekleme hesabı
+      panX = mouseX - (mouseX - panX) * (newScale / scale);
+      panY = mouseY - (mouseY - panY) * (newScale / scale);
+      scale = newScale;
+
+      draw();
+    }, { passive: false });
+
+    // --- PAN (SURUKLE VE KAYDIR) ETKİLEŞİMİ ---
+    canvas.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      startX = e.clientX - panX;
+      startY = e.clientY - panY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        panX = e.clientX - startX;
+        panY = e.clientY - startY;
+        draw();
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+
+    // Görünümü Sıfırla
+    resetViewBtn.addEventListener('click', () => {
+      scale = 1;
+      panX = 0;
+      panY = 0;
+      draw();
+    });
+
+    addObjectBtn.addEventListener('click', addObject);
+    sliderR.addEventListener('input', draw);
+    radioButtons.forEach(radio => radio.addEventListener('change', draw));
+
+    // İlk Yükleme
+    renderObjectCards();
+    draw();
+  </script>
+</body>
+</html>
