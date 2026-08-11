@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D İletken Direnci ve Akım Simülasyonu</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        body { background: #0c0d12; color: #fff; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
+        #canvas-container { flex: 1; position: relative; width: 100%; height: 100%; }
+        
+        /* Sol Kontrol Paneli */
+        #ui-panel {
+            position: absolute; top: 20px; left: 20px;
+            background: rgba(15, 18, 28, 0.92); padding: 18px; border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.15); display: flex; flex-direction: column; gap: 10px; width: 310px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 10; max-height: 95vh; overflow-y: auto;
+        }
+        .control-group { display: flex; flex-direction: column; gap: 4px; }
+        label { font-size: 12px; color: #6c7a9c; font-weight: bold; }
+        select, button { padding: 8px 10px; border-radius: 6px; border: none; background: #1e2436; color: #fff; font-size: 13px; cursor: pointer; }
+        select:hover, button:hover { background: #2a334d; }
+        button.active { background: #27ae60; font-weight: bold; }
+        button.paused { background: #e67e22; font-weight: bold; }
+        
+        .slider-container { display: flex; flex-direction: column; gap: 2px; background: #181d2c; padding: 8px; border-radius: 6px; }
+        .slider-header { display: flex; justify-content: space-between; font-size: 12px; color: #f1c40f; font-weight: bold; }
+        input[type=range] { width: 100%; accent-color: #f1c40f; cursor: pointer; }
+
+        /* Sağ Tekleştirilmiş Bilgi ve Formül Paneli */
+        #info-panel {
+            position: absolute; top: 20px; right: 20px;
+            background: rgba(15, 18, 28, 0.95); padding: 18px 20px; border-radius: 14px;
+            border: 2px solid #3498db; font-family: 'Segoe UI', monospace;
+            width: 360px; box-shadow: 0 8px 32px rgba(0,0,0,0.8); z-index: 10;
+        }
+        .panel-title { font-size: 15px; color: #3498db; font-weight: bold; margin-bottom: 12px; border-bottom: 1px solid rgba(52, 152, 219, 0.3); padding-bottom: 6px; text-align: center; }
+        
+        .formula-card {
+            background: rgba(255, 255, 255, 0.04); padding: 8px 10px; border-radius: 6px;
+            margin-bottom: 8px; border-left: 3px solid #f1c40f; font-size: 12px;
+        }
+        .formula-head { color: #f1c40f; font-weight: bold; font-size: 13px; margin-bottom: 2px; }
+        .formula-calc { color: #dcdde1; font-size: 12px; }
+
+        .result-box {
+            background: rgba(46, 204, 113, 0.12); padding: 10px; border-radius: 8px;
+            border: 1px dashed #2ecc71; text-align: center; margin-top: 10px;
+        }
+        .result-title { font-size: 12px; color: #2ecc71; font-weight: bold; }
+        .result-val { font-size: 22px; color: #2ecc71; font-weight: bold; }
+
+        /* Alt Lejant */
+        #legend {
+            position: absolute; bottom: 20px; left: 20px;
+            background: rgba(15, 18, 28, 0.9); padding: 10px 16px; border-radius: 8px;
+            display: flex; gap: 14px; font-size: 12px; border: 1px solid rgba(255, 255, 255, 0.15); z-index: 10;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <div id="canvas-container">
+        <!-- Sol Kontrol Paneli -->
+        <div id="ui-panel">
+            <div class="control-group">
+                <label for="material-select">MALZEME TÜRÜ (ÖZDİRENÇ):</label>
+                <select id="material-select">
+                    <option value="Ag">Gümüş (Ag) - 1.59 × 10⁻⁸ Ω·m</option>
+                    <option value="Cu" selected>Bakır (Cu) - 1.68 × 10⁻⁸ Ω·m</option>
+                    <option value="Au">Altın (Au) - 2.44 × 10⁻⁸ Ω·m</option>
+                    <option value="Al">Alüminyum (Al) - 2.82 × 10⁻⁸ Ω·m</option>
+                    <option value="Fe">Demir (Fe) - 9.71 × 10⁻⁸ Ω·m</option>
+                </select>
+            </div>
+
+            <div class="slider-container">
+                <div class="slider-header">
+                    <span>Tel Uzunluğu (L):</span>
+                    <span id="length-display">10 m</span>
+                </div>
+                <input type="range" id="length-slider" min="1" max="50" value="10" step="1">
+            </div>
+
+            <div class="slider-container">
+                <div class="slider-header">
+                    <span>Kesit Alanı (A):</span>
+                    <span id="area-display">1.0 mm²</span>
+                </div>
+                <input type="range" id="area-slider" min="0.2" max="5.0" value="1.0" step="0.1">
+            </div>
+
+            <div class="slider-container">
+                <div class="slider-header">
+                    <span>Gerilim (V):</span>
+                    <span id="voltage-display">50 V</span>
+                </div>
+                <input type="range" id="voltage-slider" min="0" max="220" value="50" step="5">
+            </div>
+
+            <button id="switch-btn">Anahtarı Kapat (Akımı Başlat)</button>
+            <button id="pause-btn" disabled>Duraklat ❚❚</button>
+            <button id="reset-btn">Sıfırla ↻</button>
+        </div>
+
+        <!-- Tekleştirilmiş Bilgi Ekranı -->
+        <div id="info-panel">
+            <div class="panel-title">FİZİKSEL HESAPLAMALAR</div>
+
+            <div class="formula-card">
+                <div class="formula-head">1. İletken Direnci (R = ρ · L / A)</div>
+                <div class="formula-calc" id="calc-resistance">R = (1.68×10⁻⁸) × (10 / 1.0×10⁻⁶)</div>
+                <div style="text-align: right; font-weight: bold; color: #e74c3c; margin-top: 2px;" id="val-resistance">R = 0.1680 Ω</div>
+            </div>
+
+            <div class="formula-card" style="border-left-color: #00cec9;">
+                <div class="formula-head" style="color: #00cec9;">2. Elektrik Alan (E = V / L)</div>
+                <div class="formula-calc" id="calc-efield">E = 50 V / 10 m</div>
+                <div style="text-align: right; font-weight: bold; color: #00cec9; margin-top: 2px;" id="val-efield">E = 5.00 V/m</div>
+            </div>
+
+            <div class="formula-card" style="border-left-color: #2ecc71;">
+                <div class="formula-head" style="color: #2ecc71;">3. Ohm Yasası (I = V / R)</div>
+                <div class="formula-calc" id="calc-current">I = 50 V / 0.1680 Ω</div>
+            </div>
+
+            <div class="result-box">
+                <div class="result-title">KARARLI AKIM ŞİDDETİ (I)</div>
+                <div class="result-val" id="val-current">0.00 A</div>
+            </div>
+        </div>
+
+        <!-- Alt Lejant -->
+        <div id="legend">
+            <div class="legend-item"><span style="color:#00cec9; font-weight:bold;">➔ E</span> Elektrik Alan</div>
+            <div class="legend-item"><span class="dot" style="background: #e74c3c;"></span> Serbest Elektron (-)</div>
+            <div class="legend-item"><span class="dot" style="background: #f1c40f;"></span> Pozitif İyon Çekirdeği (+)</div>
+        </div>
+    </div>
+
+    <script>
+        const container = document.getElementById('canvas-container');
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0c0d12);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 4000);
+        camera.position.set(0, 180, 850);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(200, 300, 400);
+        scene.add(dirLight);
+
+        // ÖZDİRENÇ VERİTABANI
+        const materials = {
+            'Ag': { name: 'Gümüş', rho: 1.59e-8, color: 0xc0c0c0 },
+            'Cu': { name: 'Bakır', rho: 1.68e-8, color: 0xb87333 },
+            'Au': { name: 'Altın', rho: 2.44e-8, color: 0xffd700 },
+            'Al': { name: 'Alüminyum', rho: 2.82e-8, color: 0xd3d3d3 },
+            'Fe': { name: 'Demir', rho: 9.71e-8, color: 0x708090 }
+        };
+
+        let currentMaterialKey = 'Cu';
+        let wireLength = 10; // m
+        let wireArea = 1.0;  // mm²
+        let voltage = 50;    // V
+
+        let isSwitchClosed = false;
+        let isPaused = false;
+
+        const BASE_LENGTH_REF = 10; 
+        const BASE_AREA_REF = 1.0;   
+        const BASE_CYL_LENGTH = 450;
+        const BASE_CYL_RADIUS = 70;
+
+        let currentCylLength = BASE_CYL_LENGTH;
+        let currentCylRadius = BASE_CYL_RADIUS;
+
+        // Silindir Gövdesi
+        let cylGeom = new THREE.CylinderGeometry(1, 1, 1, 32, 1, true);
+        let cylMat = new THREE.MeshPhongMaterial({ color: materials[currentMaterialKey].color, transparent: true, opacity: 0.25, side: THREE.DoubleSide });
+        let cylinderMesh = new THREE.Mesh(cylGeom, cylMat);
+        cylinderMesh.rotation.z = Math.PI / 2;
+        scene.add(cylinderMesh);
+
+        function createTextSprite(text, colorHex, fontPx = 90) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128; canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = colorHex;
+            ctx.font = `Bold ${fontPx}px Arial`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(text, 64, 64);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true }));
+            sprite.scale.set(60, 60, 1);
+            return sprite;
+        }
+
+        // Kapaklar ve Kutup Etiketleri
+        const posCapMat = new THREE.MeshBasicMaterial({ color: 0xe74c3c, transparent: true, opacity: 0.35, side: THREE.DoubleSide });
+        const posCap = new THREE.Mesh(new THREE.CircleGeometry(1, 32), posCapMat);
+        posCap.rotation.y = Math.PI / 2;
+        scene.add(posCap);
+
+        const posLabel = createTextSprite("(+)", "#e74c3c");
+        scene.add(posLabel);
+
+        const negCapMat = new THREE.MeshBasicMaterial({ color: 0x3498db, transparent: true, opacity: 0.35, side: THREE.DoubleSide });
+        const negCap = new THREE.Mesh(new THREE.CircleGeometry(1, 32), negCapMat);
+        negCap.rotation.y = Math.PI / 2;
+        scene.add(negCap);
+
+        const negLabel = createTextSprite("(-)", "#3498db");
+        scene.add(negLabel);
+
+        // Elektrik Alan Okları
+        const eFieldGroup = new THREE.Group();
+        scene.add(eFieldGroup);
+        const eSymbolLabel = createTextSprite("E", "#00cec9", 110);
+        scene.add(eSymbolLabel);
+
+        let particleObjects = [];
+        let coreObjects = [];
+
+        class Particle3D {
+            constructor(type) {
+                this.type = type;
+                this.position = new THREE.Vector3();
+                this.velocity = new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.8,
+                    (Math.random() - 0.5) * 0.8,
+                    (Math.random() - 0.5) * 0.8
+                );
+                this.createMesh();
+                this.resetRandomPosition();
+            }
+
+            resetRandomPosition() {
+                this.position.x = (Math.random() - 0.5) * (currentCylLength - 20);
+                const angle = Math.random() * Math.PI * 2;
+                const r = Math.sqrt(Math.random()) * Math.max(10, currentCylRadius - 12);
+                this.position.y = r * Math.sin(angle);
+                this.position.z = r * Math.cos(angle);
+                if (this.mesh) this.mesh.position.copy(this.position);
+            }
+
+            createMesh() {
+                const radius = this.type === 'electron' ? 4 : 7;
+                const color = this.type === 'electron' ? 0xe74c3c : materials[currentMaterialKey].color;
+                const geom = new THREE.SphereGeometry(radius, 16, 16);
+                const mat = new THREE.MeshPhongMaterial({ color: color, shininess: 80, emissive: color, emissiveIntensity: 0.3 });
+                this.mesh = new THREE.Mesh(geom, mat);
+                scene.add(this.mesh);
+            }
+
+            update(currentAmp) {
+                if (this.type === 'core' || isPaused) return;
+
+                let drift = 0;
+                if (isSwitchClosed && voltage > 0) {
+                    drift = -Math.min(15, Math.max(0.6, currentAmp * 0.04 + (voltage / wireLength) * 0.2));
+                }
+
+                this.position.x += this.velocity.x + drift;
+                this.position.y += this.velocity.y;
+                this.position.z += this.velocity.z;
+
+                const halfL = currentCylLength / 2;
+                if (this.position.x < -halfL) this.position.x = halfL;
+                if (this.position.x > halfL) this.position.x = -halfL;
+
+                const distFromAxis = Math.sqrt(this.position.y * this.position.y + this.position.z * this.position.z);
+                const maxR = currentCylRadius - 10;
+                if (distFromAxis > maxR && maxR > 0) {
+                    this.velocity.y *= -1;
+                    this.velocity.z *= -1;
+                    this.position.y = (this.position.y / distFromAxis) * maxR;
+                    this.position.z = (this.position.z / distFromAxis) * maxR;
+                }
+
+                this.mesh.position.copy(this.position);
+            }
+
+            destroy() {
+                scene.remove(this.mesh);
+                this.mesh.geometry.dispose();
+                this.mesh.material.dispose();
+            }
+        }
+
+        // 3D Geometriyi Uzunluk ve Kesit Alanına Göre Güncelleme
+        function updateWireGeometry() {
+            const lengthScale = 0.5 + (wireLength / BASE_LENGTH_REF) * 0.5; 
+            const radiusScale = Math.sqrt(wireArea / BASE_AREA_REF);
+
+            currentCylLength = BASE_CYL_LENGTH * lengthScale;
+            currentCylRadius = BASE_CYL_RADIUS * radiusScale;
+
+            cylinderMesh.scale.set(currentCylRadius, currentCylLength, currentCylRadius);
+
+            posCap.scale.set(currentCylRadius, currentCylRadius, 1);
+            posCap.position.set(-currentCylLength / 2, 0, 0);
+            posLabel.position.set(-currentCylLength / 2 - 45, 0, 0);
+
+            negCap.scale.set(currentCylRadius, currentCylRadius, 1);
+            negCap.position.set(currentCylLength / 2, 0, 0);
+            negLabel.position.set(currentCylLength / 2 + 45, 0, 0);
+
+            while(eFieldGroup.children.length > 0){ 
+                eFieldGroup.remove(eFieldGroup.children[0]); 
+            }
+
+            const arrowCount = 5;
+            for (let i = 0; i < arrowCount; i++) {
+                const posX = -currentCylLength / 2 + 40 + (i * (currentCylLength - 80) / (arrowCount - 1));
+                const arrow = new THREE.ArrowHelper(
+                    new THREE.Vector3(1, 0, 0), 
+                    new THREE.Vector3(posX, currentCylRadius + 30, 0), 
+                    45, 0x00cec9, 12, 7
+                );
+                eFieldGroup.add(arrow);
+            }
+            eSymbolLabel.position.set(0, currentCylRadius + 75, 0);
+
+            initParticles();
+        }
+
+        function initParticles() {
+            particleObjects.forEach(p => p.destroy());
+            coreObjects.forEach(c => c.destroy());
+            particleObjects = []; coreObjects = [];
+
+            const xSteps = Math.max(3, Math.floor(currentCylLength / 60));
+            const xSpacing = currentCylLength / xSteps;
+
+            for (let x = -currentCylLength / 2 + xSpacing/2; x <= currentCylLength / 2 - xSpacing/2; x += xSpacing) {
+                const rCore = Math.max(10, currentCylRadius - 25);
+                for (let a = 0; a < Math.PI * 2; a += Math.PI / 2) {
+                    const y = rCore * Math.sin(a);
+                    const z = rCore * Math.cos(a);
+                    const core = new Particle3D('core');
+                    core.position.set(x, y, z);
+                    core.mesh.position.copy(core.position);
+                    coreObjects.push(core);
+                }
+            }
+
+            const electronCount = Math.floor(60 * (wireArea / 1.0));
+            for (let i = 0; i < Math.min(120, Math.max(30, electronCount)); i++) {
+                particleObjects.push(new Particle3D('electron'));
+            }
+        }
+
+        // Fiziksel Hesaplamalar ve UI Güncelleme
+        function calculatePhysics() {
+            const mat = materials[currentMaterialKey];
+            const areaInM2 = wireArea * 1e-6; // mm² -> m²
+            
+            const resistance = mat.rho * (wireLength / areaInM2);
+            const current = isSwitchClosed && voltage > 0 ? (voltage / resistance) : 0;
+            const eField = (voltage / wireLength);
+
+            // Bilgi Paneli Metinleri
+            document.getElementById('calc-resistance').innerText = `R = (${mat.rho.toExponential(2)}) × (${wireLength} / ${areaInM2.toExponential(1)})`;
+            document.getElementById('val-resistance').innerText = `R = ${resistance.toFixed(4)} Ω`;
+
+            document.getElementById('calc-efield').innerText = `E = ${voltage} V / ${wireLength} m`;
+            document.getElementById('val-efield').innerText = `E = ${eField.toFixed(2)} V/m`;
+
+            document.getElementById('calc-current').innerText = `I = ${voltage} V / ${resistance.toFixed(4)} Ω`;
+            document.getElementById('val-current').innerText = `${current.toFixed(2)} A`;
+
+            return { current };
+        }
+
+        function updateElectricFieldVisuals() {
+            const showField = (voltage > 0 && isSwitchClosed);
+            eFieldGroup.children.forEach(arrow => arrow.visible = showField);
+            eSymbolLabel.visible = showField;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const { current } = calculatePhysics();
+            particleObjects.forEach(p => p.update(current));
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Dinleyiciler
+        document.getElementById('material-select').addEventListener('change', (e) => {
+            currentMaterialKey = e.target.value;
+            cylMat.color.setHex(materials[currentMaterialKey].color);
+            coreObjects.forEach(c => c.mesh.material.color.setHex(materials[currentMaterialKey].color));
+            calculatePhysics();
+        });
+
+        document.getElementById('length-slider').addEventListener('input', (e) => {
+            wireLength = parseFloat(e.target.value);
+            document.getElementById('length-display').innerText = wireLength + ' m';
+            updateWireGeometry();
+            calculatePhysics();
+        });
+
+        document.getElementById('area-slider').addEventListener('input', (e) => {
+            wireArea = parseFloat(e.target.value);
+            document.getElementById('area-display').innerText = wireArea.toFixed(1) + ' mm²';
+            updateWireGeometry();
+            calculatePhysics();
+        });
+
+        document.getElementById('voltage-slider').addEventListener('input', (e) => {
+            voltage = parseInt(e.target.value);
+            document.getElementById('voltage-display').innerText = voltage + ' V';
+            updateElectricFieldVisuals();
+            calculatePhysics();
+        });
+
+        const switchBtn = document.getElementById('switch-btn');
+        const pauseBtn = document.getElementById('pause-btn');
+
+        switchBtn.addEventListener('click', () => {
+            isSwitchClosed = !isSwitchClosed;
+            if (isSwitchClosed) {
+                switchBtn.innerText = "Anahtarı Aç (Akımı Durdur)";
+                switchBtn.classList.add('active');
+                pauseBtn.disabled = false;
+            } else {
+                switchBtn.innerText = "Anahtarı Kapat (Akımı Başlat)";
+                switchBtn.classList.remove('active');
+                pauseBtn.disabled = true;
+                isPaused = false;
+                pauseBtn.innerText = "Duraklat ❚❚";
+                pauseBtn.classList.remove('paused');
+            }
+            updateElectricFieldVisuals();
+            calculatePhysics();
+        });
+
+        pauseBtn.addEventListener('click', () => {
+            if (!isSwitchClosed) return;
+            isPaused = !isPaused;
+            pauseBtn.innerText = isPaused ? "Devam Et ▶" : "Duraklat ❚❚";
+            pauseBtn.classList.toggle('paused', isPaused);
+        });
+
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            isPaused = false;
+            pauseBtn.innerText = "Duraklat ❚❚"; pauseBtn.classList.remove('paused');
+            updateWireGeometry();
+            calculatePhysics();
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Başlat
+        updateWireGeometry();
+        calculatePhysics();
+        updateElectricFieldVisuals();
+        animate();
+    </script>
+</body>
+</html>
