@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Schräger Wurf - Vertikale Abweichung & h_max Legend</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    body {
+      background-color: #0f172a;
+      color: #e2e8f0;
+      padding: 20px;
+      min-height: 100vh;
+      overflow-y: auto;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .header h1 {
+      font-size: 1.5rem;
+      color: #38bdf8;
+    }
+    .main-layout {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .canvas-container {
+      flex: 1 1 650px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    canvas {
+      background-color: #1e293b;
+      border: 2px solid #334155;
+      border-radius: 8px;
+      width: 100%;
+      height: 480px;
+      display: block;
+    }
+    
+    /* Control Panel Layout */
+    .controls {
+      background-color: #1e293b;
+      padding: 15px 20px;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .sliders-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px 18px;
+      flex: 1;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    label {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      display: flex;
+      justify-content: space-between;
+    }
+    input[type="range"] {
+      width: 100%;
+      accent-color: #38bdf8;
+      cursor: pointer;
+    }
+
+    /* Small Buttons on the Right */
+    .button-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      justify-content: center;
+      align-items: flex-end;
+      border-left: 1px solid #334155;
+      padding-left: 18px;
+    }
+    button {
+      background-color: #38bdf8;
+      color: #0f172a;
+      border: none;
+      padding: 7px 16px;
+      font-size: 0.82rem;
+      border-radius: 5px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      width: 120px;
+    }
+    button:hover {
+      background-color: #7dd3fc;
+    }
+    button.reset {
+      background-color: #64748b;
+      color: #fff;
+    }
+    button.reset:hover {
+      background-color: #94a3b8;
+    }
+
+    /* Sidebar (Live Data Only) */
+    .sidebar {
+      flex: 0 0 260px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    .panel {
+      background-color: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 15px;
+    }
+    .panel h2 {
+      font-size: 1.05rem;
+      color: #38bdf8;
+      margin-bottom: 12px;
+      border-bottom: 1px solid #334155;
+      padding-bottom: 6px;
+    }
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 0.88rem;
+      font-family: monospace;
+    }
+    .stat-row .val {
+      color: #facc15;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>Schräger Wurf vs. Geradlinige Bewegung (Divergenz-Beweis)</h1>
+  </div>
+
+  <div class="main-layout">
+    <!-- Left: Canvas & Controls -->
+    <div class="canvas-container">
+      <canvas id="simCanvas" width="800" height="480"></canvas>
+
+      <div class="controls">
+        <div class="sliders-grid">
+          <div class="control-group">
+            <label>Anfangsgeschwindigkeit (v₀): <span id="lblV0">30 m/s</span></label>
+            <input type="range" id="sliderV0" min="10" max="60" value="30" step="1">
+          </div>
+          <div class="control-group">
+            <label>Abwurfwinkel (θ): <span id="lblAngle">35°</span></label>
+            <input type="range" id="sliderAngle" min="15" max="75" value="35" step="1">
+          </div>
+          <div class="control-group">
+            <label>Erdbeschleunigung (g): <span id="lblG">9.8 m/s²</span></label>
+            <input type="range" id="sliderG" min="0" max="25" value="9.8" step="0.1">
+          </div>
+          <div class="control-group">
+            <label>Wandposition (X): <span id="lblWall">60 m</span></label>
+            <input type="range" id="sliderWall" min="20" max="80" value="60" step="1">
+          </div>
+        </div>
+
+        <!-- Right Aligned Compact Buttons -->
+        <div class="button-group">
+          <button id="btnStart">Start / Pause</button>
+          <button id="btnReset" class="reset">Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Live Data Panel -->
+    <div class="sidebar">
+      <div class="panel">
+        <h2>Echtzeit-Daten</h2>
+        <div class="stat-row">Zeit (t): <span class="val" id="valT">0.00 s</span></div>
+        <div class="stat-row">X-Position (x): <span class="val" id="valX">0.00 m</span></div>
+        <div class="stat-row">Geradlinig Y (yA): <span class="val" id="valYA" style="color:#facc15">0.00 m</span></div>
+        <div class="stat-row">Wurf Y (yB): <span class="val" id="valYB" style="color:#38bdf8">0.00 m</span></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Controls
+    const sliderV0 = document.getElementById('sliderV0');
+    const sliderAngle = document.getElementById('sliderAngle');
+    const sliderG = document.getElementById('sliderG');
+    const sliderWall = document.getElementById('sliderWall');
+
+    const lblV0 = document.getElementById('lblV0');
+    const lblAngle = document.getElementById('lblAngle');
+    const lblG = document.getElementById('lblG');
+    const lblWall = document.getElementById('lblWall');
+
+    // Live Data Elements
+    const valT = document.getElementById('valT');
+    const valX = document.getElementById('valX');
+    const valYA = document.getElementById('valYA');
+    const valYB = document.getElementById('valYB');
+
+    const btnStart = document.getElementById('btnStart');
+    const btnReset = document.getElementById('btnReset');
+
+    // Coordinate System Setup
+    const originX = 50;
+    const originY = 420;
+    const meterToPixel = 8; // 1 m = 8 px
+
+    let v0 = parseFloat(sliderV0.value);
+    let angleDeg = parseFloat(sliderAngle.value);
+    let g = parseFloat(sliderG.value);
+    let wallX = parseFloat(sliderWall.value);
+
+    let t = 0;
+    let isRunning = false;
+    let isFinished = false;
+    let timerId = null;
+
+    let pathA = [];
+    let pathB = [];
+
+    // Data for h_max Legend
+    let hMaxData = null; 
+
+    function updateLabels() {
+      lblV0.textContent = `${v0} m/s`;
+      lblAngle.textContent = `${angleDeg}°`;
+      lblG.textContent = `${g} m/s²`;
+      lblWall.textContent = `${wallX} m`;
+    }
+
+    function resetSimulation() {
+      isRunning = false;
+      isFinished = false;
+      if (timerId) {
+        clearInterval(timerId);
+        timerId = null;
+      }
+      t = 0;
+      pathA = [];
+      pathB = [];
+      hMaxData = null;
+      updateDataUI(0, 0, 0, 0);
+      draw();
+    }
+
+    function updateDataUI(time, x, yA, yB) {
+      valT.textContent = `${time.toFixed(2)} s`;
+      valX.textContent = `${x.toFixed(2)} m`;
+      valYA.textContent = `${yA.toFixed(2)} m`;
+      valYB.textContent = `${yB.toFixed(2)} m`;
+    }
+
+    function drawGrid() {
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1;
+      
+      // Ground Line
+      ctx.beginPath();
+      ctx.moveTo(0, originY);
+      ctx.lineTo(canvas.width, originY);
+      ctx.stroke();
+
+      // Horizontal Ruler
+      ctx.fillStyle = '#64748b';
+      ctx.font = '10px sans-serif';
+      for (let m = 0; m <= 100; m += 10) {
+        let px = originX + m * meterToPixel;
+        if (px < canvas.width) {
+          ctx.beginPath();
+          ctx.moveTo(px, originY);
+          ctx.lineTo(px, originY + 5);
+          ctx.stroke();
+          ctx.fillText(`${m}m`, px - 8, originY + 18);
+        }
+      }
+    }
+
+    function drawRulerWall() {
+      let wallPx = originX + wallX * meterToPixel;
+      
+      // Wall Box
+      ctx.fillStyle = '#1e1b4b';
+      ctx.fillRect(wallPx, 20, 16, originY - 20);
+
+      ctx.strokeStyle = '#6366f1';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(wallPx, 20, 16, originY - 20);
+
+      // Scale on Wall
+      ctx.fillStyle = '#a5b4fc';
+      ctx.strokeStyle = '#818cf8';
+      ctx.lineWidth = 1;
+      ctx.font = '9px monospace';
+
+      for (let m = 0; m <= 50; m += 5) {
+        let py = originY - m * meterToPixel;
+        if (py > 20) {
+          ctx.beginPath();
+          ctx.moveTo(wallPx, py);
+          ctx.lineTo(wallPx + 8, py);
+          ctx.stroke();
+          if (m % 10 === 0) {
+            ctx.fillText(`${m}m`, wallPx + 20, py + 3);
+          }
+        }
+      }
+    }
+
+    function drawInitialVector() {
+      let angleRad = angleDeg * Math.PI / 180;
+      let maxDist = 120;
+      let endX = originX + Math.cos(angleRad) * maxDist * meterToPixel;
+      let endY = originY - Math.sin(angleRad) * maxDist * meterToPixel;
+
+      ctx.strokeStyle = 'rgba(250, 204, 21, 0.35)';
+      ctx.setLineDash([5, 5]);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(originX, originY);
+      ctx.lineTo(endX, endY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    function drawHMaxLegend() {
+      if (!hMaxData) return;
+
+      let { pxX, pxYA, pxYB, tVal, xVal, yMaxVal, deltaYVal } = hMaxData;
+
+      // Dashed vertical line at peak
+      ctx.strokeStyle = '#10b981';
+      ctx.setLineDash([3, 3]);
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(pxX, pxYA);
+      ctx.lineTo(pxX, originY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Peak Point Marker
+      ctx.fillStyle = '#10b981';
+      ctx.beginPath();
+      ctx.arc(pxX, pxYB, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Legend Card Box
+      let boxW = 160;
+      let boxH = 75;
+      let boxX = pxX - boxW / 2;
+      let boxY = pxYB - boxH - 15;
+
+      if (boxY < 10) boxY = pxYB + 15;
+      if (boxX < 10) boxX = 10;
+      if (boxX + boxW > canvas.width - 10) boxX = canvas.width - boxW - 10;
+
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(boxX, boxY, boxW, boxH, 6);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#10b981';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText(`📍 MAX. HÖHE (h_max)`, boxX + 8, boxY + 16);
+
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = '10px monospace';
+      ctx.fillText(`t  = ${tVal.toFixed(2)} s`, boxX + 8, boxY + 32);
+      ctx.fillText(`x  = ${xVal.toFixed(2)} m`, boxX + 8, boxY + 44);
+      ctx.fillText(`h  = ${yMaxVal.toFixed(2)} m`, boxX + 8, boxY + 56);
+      ctx.fillText(`Δy = ${deltaYVal.toFixed(2)} m`, boxX + 8, boxY + 68);
+    }
+
+    // FORMEL- UND BERECHNUNGSKARTE BEI BEENDIGUNG
+    function drawCompletionProofCard(pxX, pxYA, pxYB, currentYA, currentYB) {
+      let deltaY = currentYA - Math.max(0, currentYB);
+      let theoretical = 0.5 * g * t * t;
+
+      let cardX = 20;
+      let cardY = 20;
+      let cardW = 320;
+      let cardH = 120;
+
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.94)';
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(cardX, cardY, cardW, cardH, 8);
+      ctx.fill();
+      ctx.stroke();
+
+      // Header
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.fillText('✓ BEENDET - ABWEICHUNGSBERECHNUNG', cardX + 12, cardY + 22);
+
+      // Formel mit Unicode-Bruch ½
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = '11px monospace';
+      ctx.fillText(`Formel   : Δy = yA - yB = ½ · g · t²`, cardX + 12, cardY + 44);
+      
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillText(`Gemessen : Δy = ${currentYA.toFixed(2)} - ${Math.max(0, currentYB).toFixed(2)} = ${deltaY.toFixed(2)} m`, cardX + 12, cardY + 64);
+
+      ctx.fillStyle = '#facc15';
+      ctx.fillText(`Berechnet: ½ · (${g}) · (${t.toFixed(2)})² = ${theoretical.toFixed(2)} m`, cardX + 12, cardY + 84);
+
+      ctx.fillStyle = '#10b981';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText(`Ergebnis : Abweichung bewiesen!`, cardX + 12, cardY + 104);
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      drawGrid();
+      drawInitialVector();
+      drawRulerWall();
+
+      let angleRad = angleDeg * Math.PI / 180;
+      let vx = v0 * Math.cos(angleRad);
+      let vy = v0 * Math.sin(angleRad);
+
+      let currentX = vx * t;
+      let currentYA = vy * t;
+      let currentYB = vy * t - 0.5 * g * t * t;
+
+      let pxX = originX + currentX * meterToPixel;
+      let pxYA = originY - currentYA * meterToPixel;
+      let pxYB = originY - currentYB * meterToPixel;
+
+      // Trajectories
+      if (pathA.length > 1) {
+        ctx.strokeStyle = '#facc15';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(pathA[0].x, pathA[0].y);
+        for (let i = 1; i < pathA.length; i++) {
+          ctx.lineTo(pathA[i].x, pathA[i].y);
+        }
+        ctx.stroke();
+      }
+
+      if (pathB.length > 1) {
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(pathB[0].x, pathB[0].y);
+        for (let i = 1; i < pathB.length; i++) {
+          ctx.lineTo(pathB[i].x, pathB[i].y);
+        }
+        ctx.stroke();
+      }
+
+      drawHMaxLegend();
+
+      // Red dashed alignment line during motion
+      if (isRunning && currentX <= wallX && currentYB >= 0) {
+        ctx.strokeStyle = '#ef4444';
+        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(pxX, pxYA);
+        ctx.lineTo(pxX, pxYB);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = '#facc15';
+        ctx.beginPath();
+        ctx.arc(pxX, pxYA, 7, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath();
+        ctx.arc(pxX, pxYB, 8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Display Final Proof Card when Finished
+      if (isFinished) {
+        ctx.fillStyle = '#facc15';
+        ctx.beginPath();
+        ctx.arc(pxX, pxYA, 7, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath();
+        ctx.arc(pxX, pxYB, 8, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(pxX, pxYA);
+        ctx.lineTo(pxX, pxYB);
+        ctx.stroke();
+
+        let deltaY = currentYA - Math.max(0, currentYB);
+        let midY = (pxYA + pxYB) / 2;
+
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText(`Δy = ${deltaY.toFixed(2)} m`, pxX - 85, midY + 4);
+
+        drawCompletionProofCard(pxX, pxYA, pxYB, currentYA, currentYB);
+      }
+    }
+
+    function step() {
+      if (!isRunning) return;
+
+      let angleRad = angleDeg * Math.PI / 180;
+      let vx = v0 * Math.cos(angleRad);
+      let vy = v0 * Math.sin(angleRad);
+
+      t += 0.03;
+
+      let currentX = vx * t;
+      let currentYA = vy * t;
+      let currentYB = vy * t - 0.5 * g * t * t;
+
+      let pxX = originX + currentX * meterToPixel;
+      let pxYA = originY - currentYA * meterToPixel;
+      let pxYB = originY - currentYB * meterToPixel;
+
+      // Peak Check (h_max)
+      if (g > 0) {
+        let tPeak = vy / g;
+        if (!hMaxData && t >= tPeak) {
+          let xPeak = vx * tPeak;
+          let yAPeak = vy * tPeak;
+          let yBPeak = vy * tPeak - 0.5 * g * tPeak * tPeak;
+          
+          hMaxData = {
+            pxX: originX + xPeak * meterToPixel,
+            pxYA: originY - yAPeak * meterToPixel,
+            pxYB: originY - yBPeak * meterToPixel,
+            tVal: tPeak,
+            xVal: xPeak,
+            yMaxVal: yBPeak,
+            deltaYVal: yAPeak - yBPeak
+          };
+        }
+      }
+
+      if (!isNaN(pxX) && !isNaN(pxYA) && !isNaN(pxYB)) {
+        pathA.push({ x: pxX, y: pxYA });
+        pathB.push({ x: pxX, y: pxYB });
+      }
+
+      updateDataUI(t, currentX, currentYA, Math.max(0, currentYB));
+
+      if (currentX >= wallX || currentYB <= 0) {
+        isRunning = false;
+        isFinished = true;
+        clearInterval(timerId);
+        timerId = null;
+      }
+
+      draw();
+    }
+
+    // Slider Listeners
+    sliderV0.addEventListener('input', (e) => { v0 = parseFloat(e.target.value); updateLabels(); resetSimulation(); });
+    sliderAngle.addEventListener('input', (e) => { angleDeg = parseFloat(e.target.value); updateLabels(); resetSimulation(); });
+    sliderG.addEventListener('input', (e) => { g = parseFloat(e.target.value); updateLabels(); resetSimulation(); });
+    sliderWall.addEventListener('input', (e) => { wallX = parseFloat(e.target.value); updateLabels(); resetSimulation(); });
+
+    // Button Listeners
+    btnStart.addEventListener('click', () => {
+      let angleRad = angleDeg * Math.PI / 180;
+      let currentX = v0 * Math.cos(angleRad) * t;
+      let currentYB = v0 * Math.sin(angleRad) * t - 0.5 * g * t * t;
+
+      if (currentX >= wallX || currentYB <= 0 || isFinished) {
+        resetSimulation();
+      }
+
+      if (isRunning) {
+        isRunning = false;
+        if (timerId) clearInterval(timerId);
+        timerId = null;
+      } else {
+        isRunning = true;
+        isFinished = false;
+        timerId = setInterval(step, 30);
+      }
+    });
+
+    btnReset.addEventListener('click', resetSimulation);
+
+    // Initial Draw
+    updateLabels();
+    draw();
+  </script>
+</body>
+</html>
