@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gelişmiş Radyoaktif Bozunum & Etkileşim Simülatörü</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background-color: #060911; color: #e2e8f0; font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; padding: 15px; }
+        
+        header { text-align: center; margin-bottom: 15px; }
+        h1 { color: #38bdf8; font-size: 1.6rem; letter-spacing: 0.5px; }
+        p.subtitle { color: #94a3b8; font-size: 0.85rem; }
+
+        .layout-grid {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 15px;
+            max-width: 1450px;
+            margin: 0 auto;
+        }
+
+        /* Sol Menü / Butonlar */
+        .sidebar {
+            background: #0f172a;
+            border: 1px solid #1e293b;
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .menu-title { font-size: 0.85rem; font-weight: bold; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+        
+        .btn-group { display: flex; flex-direction: column; gap: 8px; }
+
+        button.sim-btn {
+            background: #1e293b;
+            color: #f1f5f9;
+            border: 1px solid #334155;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        button.sim-btn:hover { background: #334155; border-color: #38bdf8; }
+        button.sim-btn.active { background: #0284c7; border-color: #38bdf8; color: #fff; box-shadow: 0 0 10px rgba(56, 189, 248, 0.3); }
+
+        .tag { font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.15); }
+
+        /* Ana Sahne */
+        .main-stage { display: flex; flex-direction: column; gap: 15px; }
+
+        .canvas-card {
+            background: #020617;
+            border: 1px solid #1e293b;
+            border-radius: 12px;
+            padding: 15px;
+            position: relative;
+        }
+
+        .canvas-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .canvas-title { font-size: 1rem; font-weight: bold; color: #f8fafc; }
+
+        canvas { width: 100%; height: 260px; background: #000; border-radius: 8px; display: block; }
+
+        /* Canlı Analiz Ekranı */
+        .telemetry-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .telemetry-card {
+            background: #0f172a;
+            border: 1px solid #1e293b;
+            border-radius: 10px;
+            padding: 12px;
+            font-size: 0.8rem;
+        }
+
+        .card-header { color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 8px; font-weight: bold; border-bottom: 1px solid #1e293b; padding-bottom: 4px; }
+        
+        .stat-line { display: flex; justify-content: space-between; margin-bottom: 5px; font-family: monospace; }
+        .stat-val { color: #38bdf8; font-weight: bold; }
+        .stat-ok { color: #22c55e; }
+        
+        .desc-text { color: #cbd5e1; font-size: 0.78rem; line-height: 1.45; margin-top: 5px; }
+
+        .progress-bar-bg { width: 100%; height: 6px; background: #1e293b; border-radius: 3px; overflow: hidden; margin-top: 6px; }
+        .progress-bar-fill { height: 100%; background: #38bdf8; width: 0%; transition: width 0.1s linear; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>RADYOAKTİF BOZUNUM VE ETKİLEŞİM SİMÜLATÖRÜ</h1>
+        <p class="subtitle">Zayıf/Elektromanyetik/Güçlü Etkileşimler, Feynman Şemaları ve Canlı Telemetri Analizi</p>
+    </header>
+
+    <div class="layout-grid">
+        
+        <!-- SOL MENÜ -->
+        <div class="sidebar">
+            <div class="menu-title">Zayıf Etkileşimler</div>
+            <div class="btn-group">
+                <button class="sim-btn active" onclick="selectSim('beta_minus')">
+                    Beta⁻ Bozunumu (n → p + e⁻ + ν̄ₑ)
+                    <span class="tag">W⁻ Bozonu</span>
+                </button>
+                <button class="sim-btn" onclick="selectSim('beta_plus')">
+                    Beta⁺ Bozunumu (p → n + e⁺ + νₑ)
+                    <span class="tag">W⁺ Bozonu</span>
+                </button>
+                <button class="sim-btn" onclick="selectSim('muon_decay')">
+                    Müon Bozunumu (μ⁻ → e⁻ + ν̄ₑ + ν_μ)
+                    <span class="tag">Lepton</span>
+                </button>
+            </div>
+
+            <div class="menu-title" style="margin-top:8px;">Çekirdek & EM Bozunumlar</div>
+            <div class="btn-group">
+                <button class="sim-btn" onclick="selectSim('alpha_decay')">
+                    Alfa Bozunumu (⁴₂He Çıkışı)
+                    <span class="tag">Tünelleme</span>
+                </button>
+                <button class="sim-btn" onclick="selectSim('gamma_decay')">
+                    Gama Işıması (Çekirdek De-eksitasyon)
+                    <span class="tag">Foton</span>
+                </button>
+            </div>
+
+            <div class="menu-title" style="margin-top:8px;">Çift Etkileşimleri (EM)</div>
+            <div class="btn-group">
+                <button class="sim-btn" onclick="selectSim('pair_production')">
+                    Çift Oluşumu (γ → e⁻ + e⁺)
+                    <span class="tag">>1.022 MeV</span>
+                </button>
+                <button class="sim-btn" onclick="selectSim('annihilation')">
+                    Çift Yok Olması (e⁻ + e⁺ → 2γ)
+                    <span class="tag">2x 0.511 MeV</span>
+                </button>
+            </div>
+
+            <div class="menu-title" style="margin-top:8px;">Kontrol</div>
+            <button class="sim-btn" style="background:#0284c7; justify-content:center;" onclick="restartSim()">Simülasyonu Yeniden Başlat</button>
+        </div>
+
+        <!-- ANA SAHNE -->
+        <div class="main-stage">
+            
+            <div class="canvas-card">
+                <div class="canvas-header">
+                    <span class="canvas-title" id="sim-title">Beta⁻ Bozunumu Şeması</span>
+                    <span style="font-size:0.75rem; color:#94a3b8;" id="sim-equation">n ➔ p + e⁻ + ν̄ₑ</span>
+                </div>
+                <canvas id="simCanvas"></canvas>
+            </div>
+
+            <!-- CANLI ANALİZ EKRANLARI -->
+            <div class="telemetry-grid">
+                
+                <!-- 1. KORUNUM YASALARI -->
+                <div class="telemetry-card">
+                    <div class="card-header">Canlı Korunum Yasaları</div>
+                    <div class="stat-line"><span>Elektrik Yükü (Q):</span><span class="stat-val stat-ok" id="stat-charge">KORUNUYOR (0 = 0)</span></div>
+                    <div class="stat-line"><span>Baryon Sayısı (B):</span><span class="stat-val stat-ok" id="stat-baryon">KORUNUYOR (+1 = +1)</span></div>
+                    <div class="stat-line"><span>Lepton Sayısı (L):</span><span class="stat-val stat-ok" id="stat-lepton">KORUNUYOR (0 = +1 -1)</span></div>
+                    <div class="stat-line"><span>Çeşni (Flavor):</span><span class="stat-val" id="stat-flavor">d ➔ u değişti</span></div>
+                </div>
+
+                <!-- 2. KİNETİK VE ENERJİ ANALİZİ (Q-VALUE) -->
+                <div class="telemetry-card">
+                    <div class="card-header">Enerji & Kinetik (Q-Değeri)</div>
+                    <div class="stat-line"><span>Toplam Reaksiyon Q:</span><span class="stat-val" id="stat-qval">0.782 MeV</span></div>
+                    <div class="stat-line"><span>Yayılan Parçacık E:</span><span class="stat-val" id="stat-emitted-e">0.00 MeV</span></div>
+                    <div class="stat-line"><span>Nötrino Momentum E:</span><span class="stat-val" id="stat-neutrino-e">0.00 MeV</span></div>
+                    <div class="progress-bar-bg"><div class="progress-bar-fill" id="energy-progress"></div></div>
+                </div>
+
+                <!-- 3. FİZİKSEL MEKANİZMA AÇIKLAMASI -->
+                <div class="telemetry-card">
+                    <div class="card-header">Fiziksel Mekanizma Notu</div>
+                    <p class="desc-text" id="mechanism-desc">
+                        Nötrondaki bir aşağı (d) kuark, sanal bir W⁻ bozonu yayarak yukarı (u) kuarka dönüşür. Sanal W⁻ bozonu anında bir elektron ve bir elektron-karşıtı nötrinoya bozunur.
+                    </p>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        let animId;
+        let progress = 0;
+        let currentSim = 'beta_minus';
+
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth - 30;
+            canvas.height = 260;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        const simConfigs = {
+            'beta_minus': {
+                title: "Beta⁻ Bozunumu (Kuark Düzeyinde W⁻ Aracılığı)",
+                eq: "n (udd) ➔ p (uud) + e⁻ + ν̄ₑ",
+                charge: "0 = (+1) + (-1) + 0 (Korunuyor)",
+                baryon: "1 = 1 + 0 + 0 (Korunuyor)",
+                lepton: "0 = 0 + (+1) + (-1) (Korunuyor)",
+                flavor: "d ➔ u (Zayıf Kuvvet)",
+                qval: "0.782 MeV",
+                desc: "Nötron içerisindeki d-kuarkı W⁻ bozonu salarak u-kuarkına dönüşür. Sanal W⁻ bozonu elektron ve anti-nötrino üreterek bozunur."
+            },
+            'beta_plus': {
+                title: "Beta⁺ Bozunumu (Pozitron Emisyonu)",
+                eq: "p (uud) ➔ n (udd) + e⁺ + νₑ",
+                charge: "+1 = 0 + (+1) + 0 (Korunuyor)",
+                baryon: "1 = 1 + 0 + 0 (Korunuyor)",
+                lepton: "0 = 0 + (-1) + (+1) (Korunuyor)",
+                flavor: "u ➔ d (Zayıf Kuvvet)",
+                qval: "1.805 MeV",
+                desc: "Proton içerisindeki u-kuarkı W⁺ bozonu yayınlayarak d-kuarkına dönüşür. W⁺ bozonu pozitron (e⁺) ve elektron nötrinosuna (νₑ) ayrışır."
+            },
+            'muon_decay': {
+                title: "Müon Zayıf Bozunumu",
+                eq: "μ⁻ ➔ e⁻ + ν̄ₑ + ν_μ",
+                charge: "-1 = -1 + 0 + 0 (Korunuyor)",
+                baryon: "0 = 0 + 0 + 0 (Korunuyor)",
+                lepton: "L_μ: 1 = 1 | L_e: 0 = 1 - 1 (Korunuyor)",
+                flavor: "Çeşni Değişimi Yok (Lepton Ailesi)",
+                qval: "105.6 MeV",
+                desc: "Ağır bir lepton olan müon, W⁻ bozonu aracılığıyla kendi nötrinosuna dönüşürken bir elektron ve anti-elektron nötrinosu üretir."
+            },
+            'alpha_decay': {
+                title: "Alfa Bozunumu (Kuantum Tünellemesi)",
+                eq: "²³⁸₉₂U ➔ ²³⁴₉₀Th + ⁴₂He (α)",
+                charge: "+92 = +90 + 2 (Korunuyor)",
+                baryon: "238 = 234 + 4 (Korunuyor)",
+                lepton: "0 = 0 (Korunuyor)",
+                flavor: "Değişim Yok (Güçlü/Elektromanyetik)",
+                qval: "4.27 MeV",
+                desc: "Ağır çekirdek içindeki 2 proton ve 2 nötrondan oluşan alfa parçacığı, Coulomb bariyerini Kuantum Tünellemesi ile aşarak dışarı fırlatılır."
+            },
+            'gamma_decay': {
+                title: "Gama Işıması (Çekirdek Uyarılmış Durumu)",
+                eq: "⁹⁹ᵐTc ➔ ⁹⁹Tc + γ (Foton)",
+                charge: "+43 = +43 + 0 (Korunuyor)",
+                baryon: "99 = 99 (Korunuyor)",
+                lepton: "0 = 0 (Korunuyor)",
+                flavor: "Değişim Yok (Elektromanyetik)",
+                qval: "0.142 MeV",
+                desc: "Uyarılmış (meta-stabil) nükleonlar daha düşük enerji seviyesine geçerken aradaki enerji farkını yüksek frekanslı bir gama fotonu olarak salar."
+            },
+            'pair_production': {
+                title: "Çift Oluşumu (Pair Production)",
+                eq: "γ (E > 1.022 MeV) + Z ➔ e⁻ + e⁺ + Z",
+                charge: "0 = (-1) + (+1) (Korunuyor)",
+                baryon: "0 = 0 + 0 (Korunuyor)",
+                lepton: "0 = (+1) + (-1) (Korunuyor)",
+                flavor: "Değişim Yok (Elektromanyetik / QED)",
+                qval: "1.022 MeV",
+                desc: "Yüksek enerjili foton (γ), ağır bir çekirdeğin elektrik alanında momentum ve enerji koruyarak bir elektron ve bir pozitrona dönüşür."
+            },
+            'annihilation': {
+                title: "Çift Yok Olması (Annihilation)",
+                eq: "e⁻ + e⁺ ➔ γ + γ (0.511 MeV)",
+                charge: "(-1) + (+1) = 0 (Korunuyor)",
+                baryon: "0 + 0 = 0 (Korunuyor)",
+                lepton: "(+1) + (-1) = 0 (Korunuyor)",
+                flavor: "Değişim Yok (Elektromanyetik / QED)",
+                qval: "1.022 MeV",
+                desc: "Bir elektron ve bir pozitron birleşerek kütlelerini tamamen enerjiye dönüştürür; momentumun korunumu için zıt yönlerde iki adet 0.511 MeV gama fotonu saçılır."
+            }
+        };
+
+        function selectSim(key) {
+            currentSim = key;
+            document.querySelectorAll('.sim-btn').forEach(btn => btn.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            
+            const cfg = simConfigs[key];
+            document.getElementById('sim-title').innerText = cfg.title;
+            document.getElementById('sim-equation').innerText = cfg.eq;
+            document.getElementById('stat-charge').innerText = cfg.charge;
+            document.getElementById('stat-baryon').innerText = cfg.baryon;
+            document.getElementById('stat-lepton').innerText = cfg.lepton;
+            document.getElementById('stat-flavor').innerText = cfg.flavor;
+            document.getElementById('stat-qval').innerText = cfg.qval;
+            document.getElementById('mechanism-desc').innerText = cfg.desc;
+
+            restartSim();
+        }
+
+        function restartSim() {
+            progress = 0;
+            if (animId) cancelAnimationFrame(animId);
+            animate();
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            progress += 0.012;
+
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+
+            // Telemetri Güncellemesi (Canlı Enerji Sızıntısı)
+            let ePercent = Math.min(progress * 25, 100);
+            document.getElementById('energy-progress').style.width = ePercent + '%';
+            
+            let qValNum = parseFloat(simConfigs[currentSim].qval);
+            let currentKinetic = (qValNum * (ePercent / 100)).toFixed(3);
+            document.getElementById('stat-emitted-e').innerText = currentKinetic + " MeV";
+            document.getElementById('stat-neutrino-e').innerText = (qValNum - parseFloat(currentKinetic)).toFixed(3) + " MeV";
+
+            // SİMÜLASYON ÇİZİMLERİ
+            if (currentSim === 'beta_minus' || currentSim === 'beta_plus') {
+                let isPlus = currentSim === 'beta_plus';
+                
+                // Ana Parçacık Yolu
+                let p1 = Math.min(progress, 1);
+                ctx.strokeStyle = isPlus ? '#38bdf8' : '#f43f5e';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(60, cy);
+                ctx.lineTo(60 + p1 * (cx - 110), cy);
+                ctx.stroke();
+                
+                ctx.fillStyle = '#fff';
+                ctx.font = '13px monospace';
+                ctx.fillText(isPlus ? "Proton (uud)" : "Nötron (udd)", 50, cy - 15);
+
+                if (progress > 1) {
+                    // W Bozonu Dalgalı Çizgi
+                    let wP = Math.min(progress - 1, 1);
+                    ctx.strokeStyle = '#f59e0b';
+                    ctx.setLineDash([4, 4]);
+                    ctx.beginPath();
+                    ctx.moveTo(cx - 50, cy);
+                    ctx.lineTo(cx - 50, cy + wP * 60);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    ctx.fillText(isPlus ? "W⁺" : "W⁻", cx - 40, cy + 30);
+
+                    // Ürün Parçacık (Çekirdekte Kalan)
+                    ctx.strokeStyle = isPlus ? '#f43f5e' : '#38bdf8';
+                    ctx.beginPath();
+                    ctx.moveTo(cx - 50, cy);
+                    ctx.lineTo(cx + 120, cy - 35);
+                    ctx.stroke();
+                    ctx.fillText(isPlus ? "Nötron (udd)" : "Proton (uud)", cx + 125, cy - 35);
+
+                    if (progress > 2) {
+                        // Salınan Leptonlar
+                        ctx.strokeStyle = '#10b981';
+                        ctx.beginPath();
+                        ctx.moveTo(cx - 50, cy + 60);
+                        ctx.lineTo(cx + 120, cy + 35);
+                        ctx.stroke();
+                        ctx.fillText(isPlus ? "e⁺ (Pozitron)" : "e⁻ (Elektron)", cx + 125, cy + 35);
+
+                        ctx.strokeStyle = '#a855f7';
+                        ctx.beginPath();
+                        ctx.moveTo(cx - 50, cy + 60);
+                        ctx.lineTo(cx + 120, cy + 85);
+                        ctx.stroke();
+                        ctx.fillText(isPlus ? "νₑ (Nötrino)" : "ν̄ₑ (Anti-Nötrino)", cx + 125, cy + 85);
+                    }
+                }
+            } else if (currentSim === 'alpha_decay') {
+                // Ağır Çekirdek
+                let r = 35;
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath(); ctx.arc(100, cy, r, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.fillText("²³⁸U Çekirdeği", 60, cy + 55);
+
+                if (progress > 0.8) {
+                    // Alfa Parçacığı Tünelleme Çıkışı
+                    let p2 = (progress - 0.8) * 80;
+                    ctx.fillStyle = '#7dd3fc';
+                    ctx.beginPath(); ctx.arc(100 + r + p2, cy, 14, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#0284c7';
+                    ctx.fillText("α (⁴₂He)", 90 + r + p2, cy + 4);
+
+                    // Potansiyel Bariyer Çizimi
+                    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(100, cy, 55, -Math.PI/3, Math.PI/3);
+                    ctx.stroke();
+                    ctx.fillStyle = '#f59e0b'; ctx.fillText("Coulomb Bariyeri", 140, cy - 50);
+                }
+            } else if (currentSim === 'gamma_decay') {
+                // Uyarılmış Çekirdek Titreşimi
+                let shift = Math.sin(progress * 20) * 3;
+                ctx.fillStyle = '#a855f7';
+                ctx.beginPath(); ctx.arc(120 + shift, cy, 30, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.fillText("⁹⁹ᵐTc (Uyarılmış)", 80, cy + 50);
+
+                if (progress > 1) {
+                    // Gama Fotonu Dalgası
+                    let xG = 150 + (progress - 1) * 100;
+                    ctx.strokeStyle = '#f59e0b';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    for(let x=150; x < xG; x+=5) {
+                        ctx.lineTo(x, cy + Math.sin(x * 0.2) * 10);
+                    }
+                    ctx.stroke();
+                    ctx.fillStyle = '#f59e0b';
+                    ctx.fillText("γ (140 keV Foton)", xG + 10, cy);
+                }
+            } else if (currentSim === 'muon_decay') {
+                // Müon Yolu
+                ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.moveTo(50, cy); ctx.lineTo(cx - 40, cy); ctx.stroke();
+                ctx.fillStyle = '#a855f7'; ctx.fillText("μ⁻ (Müon)", 50, cy - 15);
+
+                if (progress > 1) {
+                    // W- ve Neutrino
+                    ctx.strokeStyle = '#f59e0b'; ctx.setLineDash([4, 4]);
+                    ctx.beginPath(); ctx.moveTo(cx - 40, cy); ctx.lineTo(cx - 40, cy + 50); ctx.stroke();
+                    ctx.setLineDash([]);
+
+                    ctx.strokeStyle = '#38bdf8';
+                    ctx.beginPath(); ctx.moveTo(cx - 40, cy); ctx.lineTo(cx + 100, cy - 30); ctx.stroke();
+                    ctx.fillText("ν_μ (Müon Nötrinosu)", cx + 105, cy - 30);
+
+                    if (progress > 2) {
+                        ctx.strokeStyle = '#10b981';
+                        ctx.beginPath(); ctx.moveTo(cx - 40, cy + 50); ctx.lineTo(cx + 100, cy + 30); ctx.stroke();
+                        ctx.fillText("e⁻ (Elektron)", cx + 105, cy + 30);
+
+                        ctx.strokeStyle = '#a855f7';
+                        ctx.beginPath(); ctx.moveTo(cx - 40, cy + 50); ctx.lineTo(cx + 100, cy + 70); ctx.stroke();
+                        ctx.fillText("ν̄ₑ (Anti-E Nötrinosu)", cx + 105, cy + 70);
+                    }
+                }
+            } else if (currentSim === 'pair_production') {
+                // Çekirdek Alanı
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(cx - 40, cy + 40, 35, 0, Math.PI*2); ctx.stroke();
+                ctx.fillStyle = '#94a3b8'; ctx.font = '12px monospace';
+                ctx.fillText("Çekirdek (Z)", cx - 75, cy + 85);
+
+                // Gelen Gama Fotonu
+                let pG = Math.min(progress, 1);
+                let xG = 50 + pG * (cx - 90);
+                ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 3;
+                ctx.beginPath();
+                for (let x = 50; x < xG; x += 5) {
+                    ctx.lineTo(x, cy + Math.sin(x * 0.2) * 8);
+                }
+                ctx.stroke();
+                ctx.fillStyle = '#f59e0b';
+                ctx.fillText("γ (>1.022 MeV)", 50, cy - 15);
+
+                // Oluşan e- ve e+
+                if (progress > 1) {
+                    let pOut = Math.min(progress - 1, 1) * 110;
+                    
+                    // Elektron (e-)
+                    ctx.strokeStyle = '#10b981'; ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(cx - 40, cy);
+                    ctx.lineTo(cx - 40 + pOut, cy - pOut * 0.5);
+                    ctx.stroke();
+                    ctx.fillStyle = '#10b981';
+                    ctx.fillText("e⁻ (Elektron)", cx - 35 + pOut, cy - pOut * 0.5);
+
+                    // Pozitron (e+)
+                    ctx.strokeStyle = '#f43f5e'; ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(cx - 40, cy);
+                    ctx.lineTo(cx - 40 + pOut, cy + pOut * 0.5);
+                    ctx.stroke();
+                    ctx.fillStyle = '#f43f5e';
+                    ctx.fillText("e⁺ (Pozitron)", cx - 35 + pOut, cy + pOut * 0.5);
+                }
+            } else if (currentSim === 'annihilation') {
+                // Yaklaşan Parçacıklar
+                let pIn = Math.min(progress, 1);
+                let distIn = (1 - pIn) * 120;
+
+                // Elektron
+                ctx.strokeStyle = '#10b981'; ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(50, cy - 60);
+                ctx.lineTo(cx - distIn, cy - (distIn * 0.5));
+                ctx.stroke();
+                ctx.fillStyle = '#10b981'; ctx.font = '13px monospace';
+                ctx.fillText("e⁻ (Elektron)", 50, cy - 75);
+
+                // Pozitron
+                ctx.strokeStyle = '#f43f5e'; ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(50, cy + 60);
+                ctx.lineTo(cx - distIn, cy + (distIn * 0.5));
+                ctx.stroke();
+                ctx.fillStyle = '#f43f5e';
+                ctx.fillText("e⁺ (Pozitron)", 50, cy + 75);
+
+                // Saçılan Gama Fotonları
+                if (progress > 1) {
+                    let pOut = Math.min(progress - 1, 1) * 120;
+
+                    // Sağ Foton (γ1)
+                    ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    for (let x = cx; x < cx + pOut; x += 5) {
+                        ctx.lineTo(x, cy - 20 + Math.sin(x * 0.2) * 8);
+                    }
+                    ctx.stroke();
+                    ctx.fillStyle = '#f59e0b';
+                    ctx.fillText("γ₁ (0.511 MeV)", cx + pOut + 5, cy - 20);
+
+                    // Sol Foton (γ2)
+                    ctx.beginPath();
+                    for (let x = cx; x > cx - pOut; x -= 5) {
+                        ctx.lineTo(x, cy + 20 + Math.sin((cx - x) * 0.2) * 8);
+                    }
+                    ctx.stroke();
+                    ctx.fillStyle = '#f59e0b';
+                    ctx.fillText("γ₂ (0.511 MeV)", cx - pOut - 110, cy + 20);
+                }
+            }
+
+            if (progress < 4) animId = requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
