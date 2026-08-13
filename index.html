@@ -124,7 +124,6 @@
         .btn-launch { display: inline-flex; align-items: center; background-color: #228be6; color: #fff; text-decoration: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; transition: background-color 0.2s ease, transform 0.1s ease; }
         .btn-launch:hover { background-color: #1c7ed6; box-shadow: 0 0 10px rgba(34, 139, 230, 0.5); }
         .btn-launch:active { transform: scale(0.96); }
-        .status-locked { font-size: 0.8rem; color: #868e96; font-style: italic; background-color: #1a1a24; padding: 4px 8px; border-radius: 4px; border: 1px dashed #444; }
         footer { margin-top: auto; padding: 30px; font-family: monospace; font-size: 0.85rem; color: #555; border-top: 1px solid #111; width: 100%; text-align: center; }
         footer a { color: var(--accent-blue); text-decoration: none; }
     </style>
@@ -158,7 +157,7 @@
         <p>"Imagination is more important than knowledge."</p>
         <div class="stats-bar">
             <span id="sys-status">[ SYSTEM: ACTIVE ]</span>
-            <span>[ MODULES: 11 ]</span>
+            <span>[ MODULES: 24 ]</span>
             <span>[ CORE: JS_CANVAS / THREE.JS ]</span>
         </div>
     </header>
@@ -186,7 +185,6 @@
                 <div class="sim-list">
                     <div class="sim-item"><span id="sim-6">Kütleçekim Sandbox</span><a href="kutlecekim/sandbox.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
                     <div class="sim-item"><span id="sim-kozmik-koni">Kozmik Koni & Evrenin Evrimi</span><a href="kutlecekim/kozmik-koni.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
-                    <div class="sim-item"><span id="sim-7">Kepler Yasaları</span><span class="status-locked">Yakında</span></div>
                 </div>
             </div>
 
@@ -197,7 +195,6 @@
                 <div class="sim-list">
                     <div class="sim-item"><span id="sim-8-2">İç Enerji & Denge Sıcaklığı</span><a href="thermo/denge.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
                     <div class="sim-item"><span id="sim-8-3">Termal Radyasyon & Işıma</span><a href="thermo/radiation.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
-                    <div class="sim-item"><span id="sim-8">Maxwell-Boltzmann Dağılımı</span><span class="status-locked">Yakında</span></div>
                 </div>
             </div>
 
@@ -210,7 +207,6 @@
                     <div class="sim-item"><span id="sim-9-2">Ohm Yasası & Direnç</span><a href="elektro/ohm.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
                     <div class="sim-item"><span id="sim-10">Manyetik İndüksiyon (Faraday)</span><a href="elektro/induksiyon.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
                     <div class="sim-item"><span id="sim-11-2">Manyetik Kuvvet & Lorentz</span><a href="elektro/magnetic-force.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
-                    <div class="sim-item"><span id="sim-11">Dinamik Alan Çizgileri</span><span class="status-locked">Yakında</span></div>
                 </div>
             </div>
 
@@ -230,15 +226,6 @@
                 </div>
             </div>
 
-            <!-- KATIHAL FİZİĞİ -->
-            <div class="card">
-                <h2><span id="cat-6-title">Katıhal Fiziği</span> <span>💎</span></h2>
-                <p id="cat-6-desc">Kristal yapılar, enerji bant teorileri ve mikroskobik özellikler.</p>
-                <div class="sim-list">
-                    <div class="sim-item"><span id="sim-19">Bragg Kırınımı</span><span class="status-locked">Yakında</span></div>
-                </div>
-            </div>
-
             <!-- ATOM & MOLEKÜLER -->
             <div class="card">
                 <h2><span id="cat-7-title">Atom & Moleküler</span> <span>⚛️</span></h2>
@@ -247,7 +234,6 @@
                     <div class="sim-item"><span id="sim-21">Modern Atom Teorisi (Orbital 3D)</span><a href="atom/modern-atom.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
                     <div class="sim-item"><span id="sim-22">Schrödinger Dalga Paketi</span><a href="atom/schrodinger-wave.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
                     <div class="sim-item"><span id="sim-radyoaktif">Radyoaktif Bozunum & Etkileşimler</span><a href="atom/radyoaktif-bozunum.html" class="btn-launch"><span class="btn-txt">Başlat</span> 🚀</a></div>
-                    <div class="sim-item"><span id="sim-20">Bohr Atom Modeli</span><span class="status-locked">Yakında</span></div>
                 </div>
             </div>
 
@@ -266,7 +252,6 @@
                 "lbl-visitor": "👁️ Ziyaretçi:",
                 "sys-status": "[ SİSTEM: AKTİF ]",
                 "btn-launch": "Başlat",
-                "status-locked": "Yakında",
                 
                 "cat-1-title": "Klasik Mekanik",
                 "cat-1-desc": "Makroskobik cisimlerin hareket yasaları, kuvvet, enerji ve dinamik sistemler.",
@@ -280,13 +265,11 @@
                 "cat-2-desc": "Gök cisimlerinin çekim kuvvetleri, yörünge mekaniği ve çekim alanları.",
                 "sim-6": "Kütleçekim Sandbox",
                 "sim-kozmik-koni": "Kozmik Koni & Evrenin Evrimi",
-                "sim-7": "Kepler Yasaları",
 
                 "cat-3-title": "Termodinamik",
                 "cat-3-desc": "Isı, iş, entropi ve parçacık topluluklarının istatistiksel mekaniği.",
                 "sim-8-2": "İç Enerji & Denge Sıcaklığı",
                 "sim-8-3": "Termal Radyasyon & Işıma",
-                "sim-8": "Maxwell-Boltzmann Dağılımı",
 
                 "cat-4-title": "Elektromanyetizma",
                 "cat-4-desc": "Elektrik yükleri, devreler, manyetik alanlar ve indüksiyon akımları.",
@@ -294,7 +277,6 @@
                 "sim-9-2": "Ohm Yasası & Direnç",
                 "sim-10": "Manyetik İndüksiyon (Faraday)",
                 "sim-11-2": "Manyetik Kuvvet & Lorentz",
-                "sim-11": "Dinamik Alan Çizgileri",
 
                 "cat-5-title": "Optik ve Dalgalar",
                 "cat-5-desc": "Işığın kırılması, yansıması, girişim, kırınım, gölge ve dalga olguları.",
@@ -307,13 +289,8 @@
                 "sim-18-2": "Optik Mercekler",
                 "sim-18-3": "Optik Aynalar",
 
-                "cat-6-title": "Katıhal Fiziği",
-                "cat-6-desc": "Kristal yapılar, enerji bant teorileri ve mikroskobik özellikler.",
-                "sim-19": "Bragg Kırınımı",
-
                 "cat-7-title": "Atom & Moleküler",
                 "cat-7-desc": "Atomun yapısı, elektron yörünge ve kuantum mekaniksel modeller.",
-                "sim-20": "Bohr Atom Modeli",
                 "sim-21": "Modern Atom Teorisi (Orbital 3D)",
                 "sim-22": "Schrödinger Dalga Paketi",
                 "sim-radyoaktif": "Radyoaktif Bozunum & Etkileşimler"
@@ -323,7 +300,6 @@
                 "lbl-visitor": "👁️ Visitors:",
                 "sys-status": "[ SYSTEM: ACTIVE ]",
                 "btn-launch": "Launch",
-                "status-locked": "Coming Soon",
 
                 "cat-1-title": "Classical Mechanics",
                 "cat-1-desc": "Laws of motion of macroscopic bodies, force, energy, and dynamic systems.",
@@ -337,13 +313,11 @@
                 "cat-2-desc": "Gravitational forces, orbital mechanics, and gravitational fields of celestial bodies.",
                 "sim-6": "Gravity Sandbox",
                 "sim-kozmik-koni": "Cosmic Cone & Cosmic Evolution",
-                "sim-7": "Kepler's Laws",
 
                 "cat-3-title": "Thermodynamics",
                 "cat-3-desc": "Heat, work, entropy, and statistical mechanics of particle ensembles.",
                 "sim-8-2": "Internal Energy & Thermal Equilibrium",
                 "sim-8-3": "Thermal Radiation",
-                "sim-8": "Maxwell-Boltzmann Distribution",
 
                 "cat-4-title": "Electromagnetism",
                 "cat-4-desc": "Electric charges, circuits, magnetic fields, and induction currents.",
@@ -351,7 +325,6 @@
                 "sim-9-2": "Ohm's Law & Resistance",
                 "sim-10": "Magnetic Induction (Faraday)",
                 "sim-11-2": "Magnetic Force & Lorentz",
-                "sim-11": "Dynamic Field Lines",
 
                 "cat-5-title": "Optics & Waves",
                 "cat-5-desc": "Refraction, reflection, interference, diffraction, shadows, and wave phenomena.",
@@ -364,13 +337,8 @@
                 "sim-18-2": "Lenses",
                 "sim-18-3": "Mirrors",
 
-                "cat-6-title": "Solid State Physics",
-                "cat-6-desc": "Crystal structures, energy band theories, and microscopic properties.",
-                "sim-19": "Bragg Diffraction",
-
                 "cat-7-title": "Atomic & Molecular",
                 "cat-7-desc": "Atomic structure, electron orbits, quantum mechanical models, and wave functions.",
-                "sim-20": "Bohr Atomic Model",
                 "sim-21": "Modern Atomic Theory (Orbital 3D)",
                 "sim-22": "Schrödinger Wave Packet",
                 "sim-radyoaktif": "Radioactive Decay & Interactions"
@@ -380,7 +348,6 @@
                 "lbl-visitor": "👁️ Besucher:",
                 "sys-status": "[ SYSTEM: AKTIV ]",
                 "btn-launch": "Starten",
-                "status-locked": "Demnächst",
 
                 "cat-1-title": "Klassische Mechanik",
                 "cat-1-desc": "Bewegungsgesetze makroskopischer Körper, Kraft, Energie und dynamische Systeme.",
@@ -394,13 +361,11 @@
                 "cat-2-desc": "Gravitationskräfte, Bahnmechanik und Gravitationsfelder von Himmelskörpern.",
                 "sim-6": "Gravitations-Sandbox",
                 "sim-kozmik-koni": "Kosmischer Konus & Evolution des Universums",
-                "sim-7": "Keplersche Gesetze",
 
                 "cat-3-title": "Thermodynamik",
                 "cat-3-desc": "Wärme, Arbeit, Entropie und statistische Mechanik von Teilchenensembles.",
                 "sim-8-2": "Innere Energie & Gleichgewichtstemperatur",
                 "sim-8-3": "Wärmestrahlung",
-                "sim-8": "Maxwell-Boltzmann-Verteilung",
 
                 "cat-4-title": "Elektromagnetismus",
                 "cat-4-desc": "Elektrische Ladungen, Schaltkreise, Magnetfelder und Induktionsströme.",
@@ -408,7 +373,6 @@
                 "sim-9-2": "Ohmschen Gesetz & Widerstand",
                 "sim-10": "Magnetische Induktion (Faraday)",
                 "sim-11-2": "Magnetische Kraft & Lorentz",
-                "sim-11": "Dynamische Feldlinien",
 
                 "cat-5-title": "Optik & Wellen",
                 "cat-5-desc": "Lichtbrechung, Reflexion, Interferenz, Beugung, Schatten und Wellenphänomene.",
@@ -421,13 +385,8 @@
                 "sim-18-2": "Linsen",
                 "sim-18-3": "Spiegel",
 
-                "cat-6-title": "Festkörperphysik",
-                "cat-6-desc": "Kristallstrukturen, Energiebandtheorien und mikroskopische Eigenschaften.",
-                "sim-19": "Bragg-Beugung",
-
                 "cat-7-title": "Atom- & Molekularphysik",
                 "cat-7-desc": "Atomstruktur, Elektronenbahnen, quantenmechanische Modelle und Wellenfunktionen.",
-                "sim-20": "Bohrsches Atommodell",
                 "sim-21": "Moderne Atomtheorie (Orbital 3D)",
                 "sim-22": "Schrödinger-Wellenpaket",
                 "sim-radyoaktif": "Radioaktiver Zerfall & Wechselwirkungen"
@@ -451,10 +410,6 @@
 
             document.querySelectorAll('.btn-txt').forEach(btn => {
                 btn.textContent = dict["btn-launch"];
-            });
-
-            document.querySelectorAll('.status-locked').forEach(badge => {
-                badge.textContent = dict["status-locked"];
             });
 
             localStorage.setItem('selectedLang', lang);
