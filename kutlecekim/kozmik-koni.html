@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kozmik Konide Evrenin Evrimi, Temel Kuvvetler ve Karanlık Madde</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { overflow: hidden; background-color: #020208; font-family: 'Segoe UI', Roboto, sans-serif; color: #fff; }
+        #canvas-container { width: 100vw; height: 100vh; position: absolute; top:0; left:0; }
+
+        .side-panel {
+            position: absolute; top: 20px; width: 340px;
+            background: rgba(8, 12, 24, 0.88); backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 242, 254, 0.3); border-radius: 12px; padding: 16px;
+            box-shadow: 0 0 25px rgba(0, 242, 254, 0.15); z-index: 10;
+        }
+
+        #left-panel { left: 20px; }
+        #right-panel { right: 20px; }
+
+        .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 10px; }
+        .panel-title { color: #00f2fe; font-weight: bold; font-size: 0.9rem; letter-spacing: 0.5px; }
+        .badge { background: #ff3366; color: #fff; font-size: 0.65rem; font-weight: bold; padding: 2px 6px; border-radius: 10px; }
+
+        .panel-list { display: flex; flex-direction: column; gap: 6px; }
+        .list-item { 
+            display: flex; align-items: center; justify-content: space-between; 
+            font-size: 0.78rem; padding: 7px 10px; border-radius: 6px; 
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); 
+            transition: all 0.3s ease; opacity: 0.5;
+        }
+        .list-item.active { 
+            border-left: 4px solid #00f2fe; background: rgba(0, 242, 254, 0.15); 
+            font-weight: bold; opacity: 1; box-shadow: 0 0 10px rgba(0,242,254,0.2); 
+            color: #fff;
+        }
+        .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 8px; flex-shrink: 0; }
+        .tag-info { font-size: 0.65rem; color: #8a99ad; font-family: monospace; }
+        .list-item.active .tag-info { color: #00f2fe; font-weight: bold; }
+
+        .dm-toggle-container {
+            display: flex; align-items: center; justify-content: space-between;
+            background: rgba(153, 51, 255, 0.15); border: 1px solid rgba(153, 51, 255, 0.4);
+            padding: 6px 12px; border-radius: 8px; margin-bottom: 10px; cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .dm-toggle-container:hover { background: rgba(153, 51, 255, 0.25); }
+        .dm-title { font-size: 0.75rem; font-weight: bold; color: #d8b4fe; display: flex; align-items: center; gap: 6px; }
+
+        .desc-box {
+            font-size: 0.73rem; color: #a0b0c0; margin-top: 10px; 
+            border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px; 
+            line-height: 1.35; min-height: 52px;
+        }
+
+        .mini-stats { display: flex; justify-content: space-between; background: rgba(255,255,255,0.04); padding: 6px 8px; border-radius: 6px; margin-bottom: 10px; font-size: 0.7rem; }
+        .mini-stat-val { color: #00f2fe; font-weight: bold; font-family: monospace; }
+
+        #control-panel {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            width: 85%; max-width: 900px; background: rgba(8, 12, 24, 0.92);
+            backdrop-filter: blur(12px); border: 1px solid rgba(0, 242, 254, 0.3);
+            border-radius: 16px; padding: 12px 24px; z-index: 10; display: flex; flex-direction: column; gap: 6px;
+        }
+        .timeline-header { display: flex; justify-content: space-between; font-size: 0.8rem; color: #8a99ad; font-weight: bold; }
+        .timeline-controls { display: flex; align-items: center; gap: 15px; }
+        .play-btn { background: #00f2fe; border: none; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-weight: bold; color: #000; flex-shrink: 0; }
+        input[type=range] { width: 100%; accent-color: #00f2fe; height: 6px; border-radius: 3px; cursor: pointer; }
+
+        #active-marker {
+            position: absolute; background: rgba(0, 242, 254, 0.95);
+            color: #000; font-weight: bold; font-size: 0.75rem;
+            padding: 4px 10px; border-radius: 4px; pointer-events: none;
+            transform: translate(-100%, -50%); box-shadow: 0 0 12px #00f2fe;
+            white-space: nowrap; transition: top 0.05s ease-out, left 0.05s ease-out;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+    <div id="active-marker">Zaman Seviyesi</div>
+
+    <!-- SOL PANEL: Sıcaklığa Göre Kuvvetlerin Ayrışma Hiyerarşisi -->
+    <div class="side-panel" id="left-panel">
+        <div class="panel-header">
+            <span class="panel-title">KUVVET DALLANMASI (T Kırılması)</span>
+            <span class="badge" style="background:#00f2fe; color:#000;">SIMETRI KIRILMASI</span>
+        </div>
+        <div class="panel-list">
+            <div class="list-item" id="f-0"><span><span class="dot" style="background:#aaa;"></span>Süper Kuvvet (Tekillik)</span><span class="tag-info">T = 10³² K</span></div>
+            <div class="list-item" id="f-1"><span><span class="dot" style="background:#ff3366;"></span>Kütleçekim Ayrıldı</span><span class="tag-info">T = 10²⁸ K</span></div>
+            <div class="list-item" id="f-2"><span><span class="dot" style="background:#ffcc00;"></span>Güçlü Çekirdek K. Ayrıldı</span><span class="tag-info">T = 10¹⁵ K</span></div>
+            <div class="list-item" id="f-3"><span><span class="dot" style="background:#00f2fe;"></span>Zayıf Çekirdek K. Ayrıldı</span><span class="tag-info">T = 10¹⁵ K</span></div>
+            <div class="list-item" id="f-4"><span><span class="dot" style="background:#ffffff;"></span>Elektromanyetizma (Nötr Atom)</span><span class="tag-info">T = 3000 K</span></div>
+            <div class="list-item" id="f-5"><span><span class="dot" style="background:#00ff88;"></span>4 Ayrık Kuvvet (Kararlı Evren)</span><span class="tag-info">T = 2.73 K</span></div>
+        </div>
+        <div class="desc-box" id="force-desc">
+            Sıcaklık düştükçe simetri kırılır ve temel kuvvetler tek tek ayrışır.
+        </div>
+    </div>
+
+    <!-- SAĞ PANEL: Kronolojik Kozmik Zaman Dilimleri -->
+    <div class="side-panel" id="right-panel">
+        <div class="panel-header">
+            <span class="panel-title">KOZMİK ZAMAN DİLİMLERİ (t)</span>
+            <span class="badge">EVRİM</span>
+        </div>
+        
+        <div class="dm-toggle-container" id="dm-toggle">
+            <div class="dm-title">
+                <span class="dot" style="background:#a855f7; box-shadow: 0 0 8px #a855f7;"></span>
+                KARANLIK MADDE AĞI
+            </div>
+            <input type="checkbox" id="dm-checkbox" checked style="accent-color: #a855f7; cursor:pointer;">
+        </div>
+
+        <div class="mini-stats">
+            <div>Anlık Sıcaklık: <span class="mini-stat-val" id="val-temp">-</span></div>
+            <div>Enerji: <span class="mini-stat-val" id="val-energy">-</span></div>
+        </div>
+
+        <div class="panel-list">
+            <div class="list-item" id="e-0"><span><span class="dot" style="background:#ff0055;"></span>Planck Dönemi</span><span class="tag-info">t = 10⁻⁴³ s</span></div>
+            <div class="list-item" id="e-1"><span><span class="dot" style="background:#ff7700;"></span>GUT & Enflasyon Evresi</span><span class="tag-info">t = 10⁻³⁶ s</span></div>
+            <div class="list-item" id="e-2"><span><span class="dot" style="background:#ffcc00;"></span>Elektro-Zayıf / Kuark Evresi</span><span class="tag-info">t = 10⁻¹⁰ s</span></div>
+            <div class="list-item" id="e-3"><span><span class="dot" style="background:#00f2fe;"></span>Hadron / Hadronlaşma</span><span class="tag-info">t = 1 s</span></div>
+            <div class="list-item" id="e-4"><span><span class="dot" style="background:#a855f7;"></span>Yeniden Birleşme (CMB)</span><span class="tag-info">t = 380.000 yıl</span></div>
+            <div class="list-item" id="e-5"><span><span class="dot" style="background:#00ff88;"></span>Galaksiler & Günümüz</span><span class="tag-info">t = 13.8 Milyar yr</span></div>
+        </div>
+        
+        <div class="desc-box" id="epoch-desc">
+            Zaman akışı bekleniyor...
+        </div>
+    </div>
+
+    <!-- ALT PANEL: Timeline Kontrolü -->
+    <div id="control-panel">
+        <div class="timeline-header">
+            <span>T = 10³² K | t = 10⁻⁴³ s</span>
+            <span style="color:#00f2fe;" id="timeline-stage-title">Süper Kuvvet Tekilliği</span>
+            <span>T = 2.73 K | t = 13.8 Milyar Yıl</span>
+        </div>
+        <div class="timeline-controls">
+            <button class="play-btn" id="play-btn">❚❚</button>
+            <input type="range" id="time-slider" min="0" max="100" value="0" step="0.1">
+        </div>
+    </div>
+
+    <script>
+        const CONE_HEIGHT = 80;
+        const MAX_RADIUS = 36;
+        const BARYON_COUNT = 4500;
+        const DM_COUNT = 3500;
+
+        // Birebir Eşleştirilmiş Sıcaklık-Zaman-Kuvvet Aşamaları
+        const STAGES = [
+            { 
+                stageIndex: 0, threshold: 12, name: "Planck Dönemi (Süper Kuvvet)", time: "10⁻⁴³ s", temp: "10³² K", energy: "10¹⁹ GeV",
+                fDesc: "Tüm kuvvetler (Kütleçekim, Güçlü, Zayıf, EM) tek bir Süper Kuvvet olarak birleşiktir.", 
+                eDesc: "Kuantum kütleçekim baskındır. Uzay-zaman köpüksü yapıdadır." 
+            },
+            { 
+                stageIndex: 1, threshold: 30, name: "GUT & Enflasyon Evresi", time: "10⁻³⁶ s", temp: "10²⁸ K", energy: "10¹⁶ GeV",
+                fDesc: "Kütleçekim Süper Kuvvet'ten ayrıldı! Güçlü, Zayıf ve EM birleşik (GUT) haldedir.", 
+                eDesc: "Evren üstel hızla genişledi. Soğuk Karanlık Madde (CDM) çekim kuyuları oluşturmaya başladı." 
+            },
+            { 
+                stageIndex: 2, threshold: 50, name: "Elektro-Zayıf & Kuark Plazması", time: "10⁻¹⁰ s", temp: "10¹⁵ K", energy: "100 GeV",
+                fDesc: "Güçlü Çekirdek Kuvveti ayrıldı! Elektromanyetizma ve Zayıf kuvvet birleşiktir (Elektro-zayıf).", 
+                eDesc: "Serbest kuarklar, gluonlar ve leptonlardan oluşan yüksek enerjili kuark-gluon plazması mevcut." 
+            },
+            { 
+                stageIndex: 3, threshold: 70, name: "Hadron & Nükleosentez", time: "1 s - 3 dk", temp: "10¹⁰ K", energy: "1 MeV",
+                fDesc: "Elektro-zayıf simetri kırıldı: Zayıf kuvvet ve Elektromanyetizma iki ayrı kuvvet olarak ayrıştı.", 
+                eDesc: "Kuarklar birleşerek proton ve nötronları (hadronları) oluşturdu. İlk hafif çekirdekler (H, He) sentezlendi." 
+            },
+            { 
+                stageIndex: 4, threshold: 88, name: "Yeniden Birleşme & Atomlar (CMB)", time: "380.000 yıl", temp: "3000 K", energy: "1 eV",
+                fDesc: "Elektromanyetizma elektronları çekirdeğe bağlayarak nötr atomları üretti.", 
+                eDesc: "Fotonlar maddeden ayrıştı ve serbestçe yayılmaya başladı (Kozmik Mikrodalga Arka Plan Işıması - CMB)." 
+            },
+            { 
+                stageIndex: 5, threshold: 100, name: "Kozmik Ağ & Galaksiler", time: "13.8 Milyar yıl", temp: "2.73 K", energy: "0.0002 eV",
+                fDesc: "4 Temel Kuvvet kararlı bir şekilde makro ve mikro evreni yönetiyor.", 
+                eDesc: "Karanlık Madde filamentleri boyunca kütleçekim etkisiyle ilk yıldızlar, galaksiler ve gezegenler oluştu." 
+            }
+        ];
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 0, 115);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        // --- KOZMİK KONİ VE SCAN DİSKİ ---
+        const conePoints = [];
+        for (let i = 0; i <= 60; i++) {
+            const t = i / 60;
+            const radius = Math.pow(t, 1.35) * MAX_RADIUS;
+            const y = t * CONE_HEIGHT - (CONE_HEIGHT / 2);
+            conePoints.push(new THREE.Vector2(radius, y));
+        }
+        const coneGeo = new THREE.LatheGeometry(conePoints, 48);
+        const coneMat = new THREE.MeshBasicMaterial({ color: 0x00f2fe, wireframe: true, transparent: true, opacity: 0.12 });
+        const cone = new THREE.Mesh(coneGeo, coneMat);
+        scene.add(cone);
+
+        const scanDiskGeo = new THREE.RingGeometry(0.1, MAX_RADIUS, 48);
+        const scanDiskMat = new THREE.MeshBasicMaterial({ color: 0x00f2fe, side: THREE.DoubleSide, transparent: true, opacity: 0.35 });
+        const scanDisk = new THREE.Mesh(scanDiskGeo, scanDiskMat);
+        scanDisk.rotation.x = Math.PI / 2;
+        scene.add(scanDisk);
+
+        // --- GÖRÜNÜR (BARYONİK) MADDE PARÇACIKLARI ---
+        const particleGeo = new THREE.BufferGeometry();
+        const positions = new Float32Array(BARYON_COUNT * 3);
+        const colors = new Float32Array(BARYON_COUNT * 3);
+        const offsets = new Float32Array(BARYON_COUNT * 3);
+
+        for (let i = 0; i < BARYON_COUNT; i++) {
+            const i3 = i * 3;
+            const t = Math.random();
+            const y = t * CONE_HEIGHT - (CONE_HEIGHT / 2);
+            const currentR = Math.pow(t, 1.35) * MAX_RADIUS * Math.sqrt(Math.random());
+            const angle = Math.random() * Math.PI * 2;
+
+            positions[i3] = Math.cos(angle) * currentR;
+            positions[i3 + 1] = y;
+            positions[i3 + 2] = Math.sin(angle) * currentR;
+
+            offsets[i3] = (Math.random() - 0.5) * 3;
+            offsets[i3 + 1] = (Math.random() - 0.5) * 3;
+            offsets[i3 + 2] = (Math.random() - 0.5) * 3;
+        }
+
+        particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        particleGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        const particleMat = new THREE.PointsMaterial({
+            size: 1.2, vertexColors: true, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending
+        });
+        const particleSystem = new THREE.Points(particleGeo, particleMat);
+        scene.add(particleSystem);
+
+        // --- KARANLIK MADDE PARÇACIKLARI (AĞ YAPISI) ---
+        const dmGeo = new THREE.BufferGeometry();
+        const dmPositions = new Float32Array(DM_COUNT * 3);
+
+        for (let i = 0; i < DM_COUNT; i++) {
+            const i3 = i * 3;
+            const t = Math.random();
+            const y = t * CONE_HEIGHT - (CONE_HEIGHT / 2);
+            const currentR = Math.pow(t, 1.35) * MAX_RADIUS * (0.3 + 0.7 * Math.random());
+            const angle = Math.random() * Math.PI * 2;
+
+            dmPositions[i3] = Math.cos(angle) * currentR;
+            dmPositions[i3 + 1] = y;
+            dmPositions[i3 + 2] = Math.sin(angle) * currentR;
+        }
+
+        dmGeo.setAttribute('position', new THREE.BufferAttribute(dmPositions, 3));
+        const dmMat = new THREE.PointsMaterial({
+            color: 0xa855f7, size: 2.0, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending
+        });
+        const dmSystem = new THREE.Points(dmGeo, dmMat);
+        scene.add(dmSystem);
+
+        // --- KONTROLLER VE DÖNGÜ ---
+        const slider = document.getElementById('time-slider');
+        const playBtn = document.getElementById('play-btn');
+        const marker = document.getElementById('active-marker');
+        const dmCheckbox = document.getElementById('dm-checkbox');
+        const dmToggleBox = document.getElementById('dm-toggle');
+
+        let isPlaying = true;
+
+        playBtn.onclick = () => { isPlaying = !isPlaying; playBtn.innerText = isPlaying ? '❚❚' : '▶'; };
+        dmToggleBox.onclick = (e) => {
+            if(e.target !== dmCheckbox) dmCheckbox.checked = !dmCheckbox.checked;
+            dmSystem.visible = dmCheckbox.checked;
+        };
+
+        const clock = new THREE.Clock();
+
+        function updatePanelsUI(activeStage) {
+            // Sol ve Sağ panellerde ilgili satırları aktif yap
+            document.querySelectorAll('.list-item').forEach(el => el.classList.remove('active'));
+
+            const fElem = document.getElementById(`f-${activeStage.stageIndex}`);
+            const eElem = document.getElementById(`e-${activeStage.stageIndex}`);
+
+            if (fElem) fElem.classList.add('active');
+            if (eElem) eElem.classList.add('active');
+
+            document.getElementById('val-temp').innerText = activeStage.temp;
+            document.getElementById('val-energy').innerText = activeStage.energy;
+            document.getElementById('force-desc').innerText = activeStage.fDesc;
+            document.getElementById('epoch-desc').innerText = activeStage.eDesc;
+            document.getElementById('timeline-stage-title').innerText = `${activeStage.name} (T = ${activeStage.temp}, t = ${activeStage.time})`;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = clock.getDelta();
+
+            if (isPlaying) {
+                let val = parseFloat(slider.value) + dt * 4;
+                if (val > 100) val = 0;
+                slider.value = val;
+            }
+
+            const progress = parseFloat(slider.value) / 100;
+            const currentY = progress * CONE_HEIGHT - (CONE_HEIGHT / 2);
+            const currentRadius = Math.pow(progress, 1.35) * MAX_RADIUS;
+
+            scanDisk.position.y = currentY;
+            scanDisk.scale.set(currentRadius / MAX_RADIUS || 0.01, currentRadius / MAX_RADIUS || 0.01, 1);
+
+            let activeStage = STAGES[0];
+            for (let stage of STAGES) {
+                if (progress * 100 <= stage.threshold) { activeStage = stage; break; }
+            }
+
+            updatePanelsUI(activeStage);
+
+            // Parçacık Fizik ve Renk Güncellemeleri
+            const posAttr = particleGeo.attributes.position;
+            const colAttr = particleGeo.attributes.color;
+            const timeNow = clock.getElapsedTime();
+
+            for (let i = 0; i < BARYON_COUNT; i++) {
+                const i3 = i * 3;
+                const pY = posAttr.array[i3 + 1];
+                const pNormY = (pY + CONE_HEIGHT / 2) / CONE_HEIGHT;
+
+                if (pNormY <= progress) {
+                    if (pNormY < 0.15) {
+                        colAttr.array[i3] = 0.9; colAttr.array[i3 + 1] = 0.2; colAttr.array[i3 + 2] = 1.0;
+                    } else if (pNormY < 0.50) {
+                        posAttr.array[i3] += Math.sin(timeNow * 10 + i) * 0.04;
+                        colAttr.array[i3] = 1.0; colAttr.array[i3 + 1] = 0.2; colAttr.array[i3 + 2] = 0.1;
+                    } else if (pNormY < 0.75) {
+                        colAttr.array[i3] = 1.0; colAttr.array[i3 + 1] = 0.85; colAttr.array[i3 + 2] = 0.1;
+                    } else {
+                        posAttr.array[i3] += offsets[i3] * 0.006;
+                        colAttr.array[i3] = 0.4; colAttr.array[i3 + 1] = 0.8; colAttr.array[i3 + 2] = 1.0;
+                    }
+                } else {
+                    colAttr.array[i3] = 0.03; colAttr.array[i3 + 1] = 0.03; colAttr.array[i3 + 2] = 0.05;
+                }
+            }
+
+            posAttr.needsUpdate = true;
+            colAttr.needsUpdate = true;
+
+            // Marker Pozisyon İzdüşümü
+            const markerPos3D = new THREE.Vector3(-currentRadius, currentY, 0);
+            markerPos3D.project(camera);
+            const x = (markerPos3D.x * .5 + .5) * window.innerWidth;
+            const y = (markerPos3D.y * -.5 + .5) * window.innerHeight;
+
+            marker.style.left = `${x - 10}px`;
+            marker.style.top = `${y}px`;
+            marker.innerText = activeStage.name;
+
+            cone.rotation.y += 0.002;
+            particleSystem.rotation.y += 0.002;
+            dmSystem.rotation.y += 0.0015;
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.onresize = () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        };
+
+        animate();
+    </script>
+</body>
+</html>
